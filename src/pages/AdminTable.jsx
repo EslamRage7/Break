@@ -190,7 +190,7 @@ export default function AdminTable() {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Department</th>
-                    <th>Used</th>
+                    {/* <th>Used</th> */}
                     <th>Last Break</th>
                     <th>Role</th>
                   </tr>
@@ -228,11 +228,11 @@ export default function AdminTable() {
                             employee.department ||
                             "-"}
                         </td>
-                        <td>
+                        {/* <td>
                           <span className="table-pill">
                             {totalUsed > 0 ? `${totalUsed} min` : "-"}
                           </span>
-                        </td>
+                        </td> */}
                         <td>
                           <span className="table-pill table-pill-neutral">
                             {lastBreakLabel}

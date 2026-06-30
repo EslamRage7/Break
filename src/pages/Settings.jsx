@@ -45,7 +45,20 @@ export default function Settings() {
 
   const textFieldStyle = {
     "& .MuiOutlinedInput-root": {
-      borderRadius: "15px",
+      borderRadius: "16px",
+      backgroundColor: "rgba(255,255,255,0.95)",
+      boxShadow: "0 8px 24px rgba(15, 23, 42, 0.05)",
+      transition: "all 0.2s ease",
+      "&:hover fieldset": {
+        borderColor: "#0ea5e9",
+      },
+      "&.Mui-focused fieldset": {
+        borderColor: "#0ea5e9",
+        borderWidth: "1.5px",
+      },
+    },
+    "& .MuiInputLabel-root.Mui-focused": {
+      color: "#0ea5e9",
     },
   };
 
@@ -173,13 +186,30 @@ export default function Settings() {
       <Sidebar />
 
       <section className="dashboard-content ">
-        <div className="settings-panel">
-          <div className="settings-header">
-            <h1>Settings</h1>
+        <div
+          className="settings-panel"
+          style={{
+            background: "linear-gradient(135deg, #f8fbff 0%, #f5f7fb 100%)",
+            border: "1px solid rgba(14, 165, 233, 0.14)",
+            boxShadow: "0 24px 60px rgba(15, 23, 42, 0.08)",
+            borderRadius: "24px",
+            padding: "28px",
+          }}>
+          <div className="settings-header" style={{ marginBottom: 20 }}>
+            <h1 style={{ margin: 0, color: "#0f172a" }}>Settings</h1>
+            <p style={{ margin: "6px 0 0", color: "#64748b" }}>
+              Update your profile details and password with ease.
+            </p>
           </div>
 
-          <div className="settings-form">
-            <div className="form-row">
+          <div className="settings-form" style={{ display: "grid", gap: 18 }}>
+            <div
+              className="form-row"
+              style={{
+                display: "grid",
+                gap: 16,
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              }}>
               <TextField
                 size="small"
                 label="First Name"
@@ -210,8 +240,7 @@ export default function Settings() {
                 onChange={(e) => setGender(e.target.value)}
                 disabled={loading || saving}
                 fullWidth
-                sx={textFieldStyle}
-              >
+                sx={textFieldStyle}>
                 <MenuItem value="">Select Gender</MenuItem>
                 <MenuItem value="true">Male</MenuItem>
                 <MenuItem value="false">Female</MenuItem>
@@ -225,8 +254,7 @@ export default function Settings() {
                 onChange={(e) => setDepartment(e.target.value)}
                 disabled={loading || saving}
                 fullWidth
-                sx={textFieldStyle}
-              >
+                sx={textFieldStyle}>
                 <MenuItem value="">Select Department</MenuItem>
                 <MenuItem value="Call Center">Call Center</MenuItem>
                 <MenuItem value="Graphic Design">Graphic Design</MenuItem>
@@ -261,8 +289,7 @@ export default function Settings() {
                           "&:hover": {
                             backgroundColor: "transparent",
                           },
-                        }}
-                      >
+                        }}>
                         {showPassword ? (
                           <VisibilityOff sx={{ fontSize: 20 }} />
                         ) : (
@@ -282,11 +309,19 @@ export default function Settings() {
               disabled={loading || saving}
               sx={{
                 py: 1.2,
-                borderRadius: 6,
+                borderRadius: 999,
                 fontWeight: 700,
                 textTransform: "none",
-              }}
-            >
+                background: "linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)",
+                boxShadow: "0 12px 24px rgba(37, 99, 235, 0.2)",
+                width: { xs: "100%", sm: "220px" },
+                alignSelf: "center",
+                mt: 1,
+                "&:hover": {
+                  background:
+                    "linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%)",
+                },
+              }}>
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
@@ -306,8 +341,7 @@ export default function Settings() {
         anchorOrigin={{
           vertical: "top",
           horizontal: "center",
-        }}
-      >
+        }}>
         <Alert severity={snackbar.severity} variant="filled">
           {snackbar.message}
         </Alert>

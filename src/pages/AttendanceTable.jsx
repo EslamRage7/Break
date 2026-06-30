@@ -79,6 +79,12 @@ export default function AttendanceTable() {
         const adminView = currentEmployee?.role === "admin";
         setIsAdmin(adminView);
 
+        if (!adminView) {
+          setNameQuery("");
+          setDepartmentQuery("");
+          setRoleQuery("");
+        }
+
         const { data: employeeRows, error: employeeError } = await supabase
           .from("employees")
           .select("user_id,email,first_name,last_name,department,role")

@@ -9,7 +9,7 @@ const formatTime = (minutesLeft, secondsLeft) => {
   ).padStart(2, "0")}`;
 };
 
-export default function Break() {
+export default function Break({ attendanceCompletedToday = false }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
 
@@ -18,12 +18,19 @@ export default function Break() {
 
   const [running, setRunning] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
 
   const [usedToday, setUsedToday] = useState(0);
   const [remainingBreak, setRemainingBreak] = useState(BREAK_LIMIT);
   const isPaused = session?.is_paused;
   const intervalRef = useRef(null);
   const syncCounterRef = useRef(0);
+  const dayKeyRef = useRef("");
+
+  const getTodayKey = () =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+    }).format(new Date());
 
   const totalDurationSeconds = BREAK_LIMIT * 60;
   const progressPercent = Math.min(
@@ -43,7 +50,7 @@ export default function Break() {
   }, []);
 
   const loadTodayUsage = useCallback(async (userId) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayKey();
 
     const { data } = await supabase
       .from("break_sessions")
@@ -74,8 +81,11 @@ export default function Break() {
 
     const totalMinutes = Math.floor(totalSeconds / 60);
 
+    const reachedLimit = totalMinutes >= BREAK_LIMIT;
+
     setUsedToday(totalMinutes);
-    setRemainingBreak(Math.max(0, 45 - totalMinutes));
+    setRemainingBreak(Math.max(0, BREAK_LIMIT - totalMinutes));
+    setIsDisabled(reachedLimit);
 
     return totalMinutes;
   }, []);
@@ -96,17 +106,21 @@ export default function Break() {
     }
   };
 
-  const loadLastSession = async (userId) => {
+  const loadLastSession = useCallback(async (userId) => {
+    const today = getTodayKey();
+
     const { data } = await supabase
       .from("break_sessions")
       .select("*")
       .eq("user_id", userId)
+      .gte("start_time", `${today}T00:00:00`)
+      .lt("start_time", `${today}T23:59:59`)
       .order("start_time", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     return data;
-  };
+  }, []);
   useEffect(() => {
     if (!user) return;
 
@@ -115,7 +129,11 @@ export default function Break() {
 
       await loadTodayUsage(user.id);
 
-      if (!last) return;
+      if (!last) {
+        setIsFinished(false);
+        setIsDisabled(false);
+        return;
+      }
 
       if (last.status === "completed" || last.used_seconds >= 2700) {
         if (last.status !== "completed") {
@@ -125,6 +143,7 @@ export default function Break() {
         setSession(null);
         setRunning(false);
         setIsFinished(false);
+        setIsDisabled(false);
         setMinutes(BREAK_LIMIT);
         setSeconds(0);
         return;
@@ -141,6 +160,7 @@ export default function Break() {
         setSession(null);
         setRunning(false);
         setIsFinished(false);
+        setIsDisabled(false);
         setMinutes(BREAK_LIMIT);
         setSeconds(0);
         return;
@@ -158,17 +178,35 @@ export default function Break() {
     };
 
     init();
-  }, [user, loadTodayUsage]);
+  }, [user, loadLastSession, loadTodayUsage]);
+  const resetForNewDay = useCallback(() => {
+    setSession(null);
+    setRunning(false);
+    setIsFinished(false);
+    setIsDisabled(false);
+    setMinutes(BREAK_LIMIT);
+    setSeconds(0);
+    setUsedToday(0);
+    setRemainingBreak(BREAK_LIMIT);
+  }, []);
+
   const startBreak = async (force = false) => {
     if (!user) return;
+
+    const todayUsage = await loadTodayUsage(user.id);
+
+    if (todayUsage >= BREAK_LIMIT) {
+      setIsDisabled(true);
+      return;
+    }
 
     clearInterval(intervalRef.current);
     setIsFinished(false);
 
     const used = await loadTodayUsage(user.id);
 
-    if (!force && used >= 45) {
-      alert("Daily limit reached");
+    if (!force && used >= BREAK_LIMIT) {
+      setIsDisabled(true);
       return;
     }
 
@@ -198,7 +236,7 @@ export default function Break() {
   };
 
   const pauseBreak = async () => {
-    if (!session) return;
+    if (!session || isDisabled) return;
 
     clearInterval(intervalRef.current);
     setRunning(false);
@@ -227,7 +265,7 @@ export default function Break() {
   };
 
   const resumeBreak = async () => {
-    if (!session) return;
+    if (!session || isDisabled) return;
 
     const used = await loadTodayUsage(user.id);
 
@@ -299,32 +337,73 @@ export default function Break() {
     const remaining = minutes * 60 + seconds;
 
     if (remaining <= 0 && running && session.status !== "completed") {
-      clearInterval(intervalRef.current);
-      setRunning(false);
-      setIsFinished(true);
-      setMinutes(0);
-      setSeconds(0);
-      setSession(null);
+      const finalize = async () => {
+        clearInterval(intervalRef.current);
+        setRunning(false);
+        setIsFinished(true);
+        setIsDisabled(true);
+        setMinutes(0);
+        setSeconds(0);
+        setSession(null);
 
-      supabase
-        .from("break_sessions")
-        .update({
-          status: "completed",
-          used_seconds: 2700,
-          used_minutes: 45,
-          end_time: new Date().toISOString(),
-        })
-        .eq("id", session.id);
+        await supabase
+          .from("break_sessions")
+          .update({
+            status: "completed",
+            used_seconds: 2700,
+            used_minutes: 45,
+            end_time: new Date().toISOString(),
+          })
+          .eq("id", session.id);
 
-      loadTodayUsage(user.id);
+        await loadTodayUsage(user.id);
+      };
+
+      finalize();
     }
   }, [minutes, seconds, running, session, user, loadTodayUsage]);
 
   const finishBreak = async () => {
-    // start a new break immediately when user finishes the completed session
-    setIsFinished(false);
-    await startBreak(true);
+    setIsFinished(true);
+    setIsDisabled(true);
   };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDay = getTodayKey();
+
+      if (currentDay !== dayKeyRef.current) {
+        dayKeyRef.current = currentDay;
+        resetForNewDay();
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [resetForNewDay]);
+
+  useEffect(() => {
+    const init = async () => {
+      dayKeyRef.current = getTodayKey();
+      await loadTodayUsage(user?.id);
+    };
+
+    if (user?.id) {
+      init();
+    }
+  }, [user?.id, loadTodayUsage]);
+
+  useEffect(() => {
+    if (!attendanceCompletedToday) return;
+
+    clearInterval(intervalRef.current);
+  }, [attendanceCompletedToday]);
+
+  const shouldHideBreak =
+    attendanceCompletedToday || (isFinished && !running && !session);
+
+  if (shouldHideBreak) {
+    return null;
+  }
 
   return (
     <div className="break-timer m-auto">
@@ -377,14 +456,20 @@ export default function Break() {
 
       <div className="timer-actions">
         {!isFinished && !session && (
-          <button className="timer-button primary" onClick={startBreak}>
-            Start
+          <button
+            className="timer-button primary"
+            onClick={startBreak}
+            disabled={isDisabled}>
+            {isDisabled ? "Completed" : "Start"}
           </button>
         )}
 
         {isFinished && (
-          <button className="timer-button primary" onClick={finishBreak}>
-            Finish
+          <button
+            className="timer-button primary"
+            onClick={finishBreak}
+            disabled>
+            Completed
           </button>
         )}
 

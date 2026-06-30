@@ -244,6 +244,14 @@ export default function Sidebar() {
             <span>Settings</span>
           </NavLink>
 
+          <NavLink
+            to="/attendance"
+            className={navLinkClass}
+            onClick={closeSidebar}>
+            <PeopleRoundedIcon fontSize="small" />
+            <span>{role === "admin" ? "Attendance" : "My Attendance"}</span>
+          </NavLink>
+
           {role === "admin" && (
             <>
               <NavLink
@@ -260,14 +268,6 @@ export default function Sidebar() {
                 onClick={closeSidebar}>
                 <AccessTimeRoundedIcon fontSize="small" />
                 <span>All Breaks</span>
-              </NavLink>
-
-              <NavLink
-                to="/attendance"
-                className={navLinkClass}
-                onClick={closeSidebar}>
-                <PeopleRoundedIcon fontSize="small" />
-                <span>Attendance</span>
               </NavLink>
             </>
           )}

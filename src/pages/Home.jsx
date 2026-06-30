@@ -13,6 +13,8 @@ function Home() {
   const [gender, setGender] = useState(null);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [showCompletedMessage, setShowCompletedMessage] = useState(false);
+  const [attendanceCompletedToday, setAttendanceCompletedToday] =
+    useState(false);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const dayKeyRef = useRef("");
 
@@ -20,6 +22,29 @@ function Home() {
     new Intl.DateTimeFormat("en-CA", {
       timeZone: "Africa/Cairo",
     }).format(new Date());
+
+  const getCompletedMessageKey = useCallback(
+    () => `attendance-completed:${getTodayKey()}`,
+    [],
+  );
+
+  const readCompletedMessageState = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(getCompletedMessageKey()) === "true";
+  }, [getCompletedMessageKey]);
+
+  const writeCompletedMessageState = useCallback(
+    (value) => {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(getCompletedMessageKey(), String(value));
+    },
+    [getCompletedMessageKey],
+  );
+
+  const resetCompletedMessageState = useCallback(() => {
+    writeCompletedMessageState(false);
+    setShowCompletedMessage(false);
+  }, [writeCompletedMessageState]);
 
   let displayName = "";
 
@@ -46,16 +71,27 @@ function Home() {
       .eq("user_id", user.id)
       .gte("check_in", `${today}T00:00:00`)
       .lte("check_in", `${today}T23:59:59`)
-      .is("check_out", null)
-      .maybeSingle();
+      .order("check_in", { ascending: false })
+      .limit(1);
 
-    const hasActiveAttendance = !!data;
+    const latestAttendance = data?.[0] ?? null;
+    const hasActiveAttendance =
+      !!latestAttendance && latestAttendance.check_out === null;
+    const hasCompletedAttendanceToday =
+      !!latestAttendance && latestAttendance.check_out !== null;
+
     setIsCheckedIn(hasActiveAttendance);
+    setAttendanceCompletedToday(hasCompletedAttendanceToday);
 
     if (hasActiveAttendance) {
-      setShowCompletedMessage(false);
+      resetCompletedMessageState();
+    } else if (hasCompletedAttendanceToday) {
+      writeCompletedMessageState(true);
+      setShowCompletedMessage(true);
+    } else {
+      resetCompletedMessageState();
     }
-  }, []);
+  }, [resetCompletedMessageState, writeCompletedMessageState]);
 
   const handleAttendance = async () => {
     try {
@@ -130,9 +166,15 @@ function Home() {
       });
 
       if (isCheckedIn) {
+        setIsCheckedIn(false);
         setShowCompletedMessage(true);
+        setAttendanceCompletedToday(true);
+        writeCompletedMessageState(true);
       } else {
+        setIsCheckedIn(true);
         setShowCompletedMessage(false);
+        setAttendanceCompletedToday(false);
+        writeCompletedMessageState(false);
       }
 
       await checkAttendance();
@@ -164,14 +206,14 @@ function Home() {
 
       if (currentDay !== dayKeyRef.current) {
         dayKeyRef.current = currentDay;
-        setShowCompletedMessage(false);
         setIsCheckedIn(false);
+        resetCompletedMessageState();
         await checkAttendance();
       }
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [checkAttendance]);
+  }, [checkAttendance, resetCompletedMessageState]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -319,7 +361,7 @@ function Home() {
               </Box>
             )}
 
-            <Break />
+            <Break attendanceCompletedToday={attendanceCompletedToday} />
 
             {!firstName && (
               <div className="home-cta">

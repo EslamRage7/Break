@@ -23,6 +23,7 @@ const formatDateTime = (value) => {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Africa/Cairo",
   }).format(new Date(value));
 };
 

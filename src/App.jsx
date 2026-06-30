@@ -5,6 +5,8 @@ import Login from "./pages/Login";
 import Break from "./components/Break";
 import AdminTable from "./pages/AdminTable";
 import BreaksTable from "./pages/BreaksTable";
+import AttendanceTable from "./pages/AttendanceTable";
+import EmployeeAttendancePage from "./pages/EmployeeAttendancePage";
 import EmployeeBreaksPage from "./pages/EmployeeBreaksPage";
 import Home from "./pages/Home";
 import VerifyEmail from "./pages/VerifyEmail";
@@ -48,6 +50,11 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/table" element={<AdminTable />} />
           <Route path="/breaks" element={<BreaksTable />} />
+          <Route path="/attendance" element={<AttendanceTable />} />
+          <Route
+            path="/employee-attendance/:userId"
+            element={<EmployeeAttendancePage />}
+          />
           <Route
             path="/employee-breaks/:userId"
             element={<EmployeeBreaksPage />}

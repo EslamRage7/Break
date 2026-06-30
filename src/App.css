@@ -388,6 +388,29 @@ body,
   );
   border-radius: 10px;
 }
+
+/* start home CTA */
+.home-cta {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin: 18px 0 6px;
+}
+.home-cta .timer-button {
+  min-width: 160px;
+  padding: 12px 20px;
+  font-size: 16px;
+  border-radius: 12px;
+}
+.home-cta .timer-button.primary {
+  background: linear-gradient(90deg, #00a6eb, #22c55e);
+  color: #fff;
+}
+.home-cta .timer-button.secondary {
+  background: #0f172a;
+  color: #fff;
+}
+/* end home CTA */
 .settings-form {
   display: grid;
   max-width: 680px;

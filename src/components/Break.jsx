@@ -159,7 +159,7 @@ export default function Break() {
 
     init();
   }, [user, loadTodayUsage]);
-  const startBreak = async () => {
+  const startBreak = async (force = false) => {
     if (!user) return;
 
     clearInterval(intervalRef.current);
@@ -167,7 +167,7 @@ export default function Break() {
 
     const used = await loadTodayUsage(user.id);
 
-    if (used >= 45) {
+    if (!force && used >= 45) {
       alert("Daily limit reached");
       return;
     }
@@ -301,8 +301,8 @@ export default function Break() {
     if (remaining <= 0 && running && session.status !== "completed") {
       clearInterval(intervalRef.current);
       setRunning(false);
-      setIsFinished(false);
-      setMinutes(BREAK_LIMIT);
+      setIsFinished(true);
+      setMinutes(0);
       setSeconds(0);
       setSession(null);
 
@@ -319,6 +319,12 @@ export default function Break() {
       loadTodayUsage(user.id);
     }
   }, [minutes, seconds, running, session, user, loadTodayUsage]);
+
+  const finishBreak = async () => {
+    // start a new break immediately when user finishes the completed session
+    setIsFinished(false);
+    await startBreak(true);
+  };
 
   return (
     <div className="break-timer m-auto">
@@ -370,9 +376,15 @@ export default function Break() {
       <div className="prayer-reminder">Don't forget your prayer 🙏🏻</div>
 
       <div className="timer-actions">
-        {(!session || isFinished) && (
+        {!isFinished && !session && (
           <button className="timer-button primary" onClick={startBreak}>
             Start
+          </button>
+        )}
+
+        {isFinished && (
+          <button className="timer-button primary" onClick={finishBreak}>
+            Finish
           </button>
         )}
 

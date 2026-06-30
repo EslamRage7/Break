@@ -15,22 +15,10 @@ const formatDateTime = (value) => {
   }).format(new Date(value));
 };
 
-const formatDuration = (minutes, seconds) => {
-  if (!minutes && !seconds) return "-";
-
-  const totalMinutes = minutes || 0;
-  const totalSeconds = seconds || 0;
-
-  if (!totalMinutes) return `${totalSeconds}s`;
-  if (!totalSeconds) return `${totalMinutes}m`;
-
-  return `${totalMinutes}m ${totalSeconds}s`;
-};
-
-export default function EmployeeBreaksPage() {
+export default function EmployeeAttendancePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const [breaks, setBreaks] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -39,10 +27,6 @@ export default function EmployeeBreaksPage() {
     message: "",
     severity: "success",
   });
-
-  const showMessage = (message, severity = "info") => {
-    setSnackbar({ open: true, message, severity });
-  };
 
   const employeeName = useMemo(() => {
     if (!employee) return userId;
@@ -82,28 +66,32 @@ export default function EmployeeBreaksPage() {
 
         setIsAdmin(true);
 
-        const { data: adminData, error: adminError } =
-          await supabase.functions.invoke("admin-data");
+        const { data: employeeRows, error: employeeError } = await supabase
+          .from("employees")
+          .select("user_id,email,first_name,last_name,department,role")
+          .eq("user_id", userId)
+          .maybeSingle();
 
-        if (adminError) throw adminError;
+        if (employeeError) throw employeeError;
+        setEmployee(employeeRows);
 
-        const employeeRows = adminData?.employees || [];
-        const selectedEmployee =
-          employeeRows.find((item) => item.user_id === userId) || null;
+        const { data: logsData, error: logsError } = await supabase
+          .from("attendance")
+          .select(
+            "id,user_id,check_in,check_out,work_minutes,status,created_at",
+          )
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
 
-        setEmployee(selectedEmployee);
-
-        const employeeBreaks = (adminData?.breaks || []).filter(
-          (item) => item.user_id === userId,
-        );
-        setBreaks(
-          employeeBreaks.sort(
-            (a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0),
-          ),
-        );
+        if (logsError) throw logsError;
+        setLogs(logsData || []);
       } catch (err) {
         console.error(err);
-        showMessage(err.message || "Failed to load employee breaks", "error");
+        setSnackbar({
+          open: true,
+          message: err.message || "Failed to load employee attendance",
+          severity: "error",
+        });
       } finally {
         setLoading(false);
       }
@@ -114,12 +102,6 @@ export default function EmployeeBreaksPage() {
     }
   }, [userId]);
 
-  const getStatusLabel = (item) => {
-    if (item.is_paused) return "Paused";
-    if (item.status) return item.status;
-    return "-";
-  };
-
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -127,15 +109,13 @@ export default function EmployeeBreaksPage() {
       <section className="dashboard-content">
         <div className="settings-panel admin-panel">
           <div className="settings-header">
-            <h1>Previous Breaks</h1>
+            <h1>Employee Attendance History</h1>
           </div>
-
           <br />
-
           <button
             className="back-btn btn"
             type="button"
-            onClick={() => navigate("/breaks")}
+            onClick={() => navigate("/attendance")}
             style={{
               marginBottom: 16,
               marginTop: 16,
@@ -146,7 +126,7 @@ export default function EmployeeBreaksPage() {
               cursor: "pointer",
               fontWeight: 600,
             }}>
-            ← Back to all breaks
+            ← Back to attendance
           </button>
 
           {loading && (
@@ -161,55 +141,63 @@ export default function EmployeeBreaksPage() {
               You do not have permission to view this page.
             </div>
           )}
-          <div style={{ marginBottom: 12, fontWeight: 700 }}>
-            Breaks of <span style={{ color: "#00a6eb" }}>{employeeName}</span>
-          </div>
 
           {!loading && isAdmin && (
-            <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Start Time</th>
-                    <th>End Time</th>
-                    <th>Duration</th>
-                    <th>Used</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {breaks.length === 0 ? (
+            <div>
+              <div style={{ marginBottom: 12, fontWeight: 700 }}>
+                Attendance of{" "}
+                <span style={{ color: "#00a6eb" }}>{employeeName}</span>
+              </div>
+
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
                     <tr>
-                      <td colSpan={6}>No breaks found for this employee.</td>
+                      <th>#</th>
+                      <th>Check In</th>
+                      <th>Check Out</th>
+                      <th>Minutes</th>
+                      <th>Status</th>
                     </tr>
-                  ) : (
-                    breaks.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <strong>{index + 1}</strong>
-                        </td>
-                        <td>{formatDateTime(item.start_time)}</td>
-                        <td>{formatDateTime(item.end_time)}</td>
-                        <td>{formatDuration(item.duration_minutes)}</td>
-                        <td>{formatDuration(item.used_minutes)}</td>
-                        <td>
-                          <span
-                            className={`table-pill ${
-                              item.is_paused
-                                ? "table-pill-neutral"
-                                : item.status === "active"
-                                  ? "table-pill-success"
-                                  : "table-pill-neutral"
-                            }`}>
-                            {getStatusLabel(item)}
-                          </span>
+                  </thead>
+                  <tbody>
+                    {logs.length === 0 ? (
+                      <tr>
+                        <td colSpan={5}>
+                          No attendance history found for this employee.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      logs.map((log, index) => (
+                        <tr key={log.id}>
+                          <td>
+                            <strong>{index + 1}</strong>
+                          </td>
+                          <td>{formatDateTime(log.check_in)}</td>
+                          <td>{formatDateTime(log.check_out)}</td>
+                          <td>{log.work_minutes || 0}</td>
+                          <td>
+                            <span
+                              className={`table-pill ${
+                                !log.check_in
+                                  ? "table-pill-danger"
+                                  : log.check_in && !log.check_out
+                                    ? "table-pill-success"
+                                    : "table-pill-neutral"
+                              }`}>
+                              {!log.check_in
+                                ? "Absent"
+                                : log.check_in && !log.check_out
+                                  ? "Working"
+                                  : "Shift Finished"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

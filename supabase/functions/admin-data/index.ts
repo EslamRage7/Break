@@ -57,11 +57,22 @@ Deno.serve(async (req) => {
     if (employeesError) throw employeesError;
     if (breaksError) throw breaksError;
 
+    // Keep only the latest break per user (breaks are ordered by start_time desc)
+    const latestByUser = [];
+    const seen = new Set();
+
+    for (const b of breaks || []) {
+      if (!seen.has(b.user_id)) {
+        latestByUser.push(b);
+        seen.add(b.user_id);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         employees: employees || [],
-        breaks: breaks || [],
+        breaks: latestByUser,
       }),
       {
         status: 200,

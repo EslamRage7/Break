@@ -257,7 +257,7 @@ function Home() {
               <h1>Welcome{displayName ? `, ${displayName}` : ""} </h1>
             </div>
 
-            {showCompletedMessage ? (
+            {showCompletedMessage || attendanceCompletedToday ? (
               <Box
                 sx={{
                   mt: 2,
@@ -283,6 +283,7 @@ function Home() {
               </Box>
             ) : (
               <Box
+                className="position-relative"
                 sx={{
                   mt: 2,
                   mb: 3,
@@ -324,6 +325,13 @@ function Home() {
                   </Typography>
                 </Box>
 
+                <Chip
+                  className="attendance-chip"
+                  label={isCheckedIn ? "Checked In" : "Not Checked In"}
+                  color={isCheckedIn ? "success" : "default"}
+                  variant={isCheckedIn ? "filled" : "outlined"}
+                />
+
                 <Box
                   sx={{
                     display: "flex",
@@ -331,11 +339,6 @@ function Home() {
                     gap: 1.5,
                     flexWrap: "wrap",
                   }}>
-                  <Chip
-                    label={isCheckedIn ? "Checked In" : "Not Checked In"}
-                    color={isCheckedIn ? "success" : "default"}
-                    variant={isCheckedIn ? "filled" : "outlined"}
-                  />
                   <Button
                     variant="contained"
                     color={isCheckedIn ? "error" : "success"}
@@ -361,22 +364,8 @@ function Home() {
               </Box>
             )}
 
-            <Break attendanceCompletedToday={attendanceCompletedToday} />
-
-            {!firstName && (
-              <div className="home-cta">
-                <button
-                  className="timer-button primary"
-                  onClick={() => navigate("/login")}>
-                  تسجيل دخول
-                </button>
-
-                <button
-                  className="timer-button secondary"
-                  onClick={() => navigate("/register")}>
-                  تسجيل حساب
-                </button>
-              </div>
+            {isCheckedIn && (
+              <Break attendanceCompletedToday={attendanceCompletedToday} />
             )}
           </div>
           <Footer />

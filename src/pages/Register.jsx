@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { sendVerificationCodeEmail } from "../utils/emailService";
 import logo from "../assets/logo.png";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { supabase } from "../supabaseClient";
 import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
 import {
@@ -76,6 +77,19 @@ export default function Register() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
+      const { data: existingUser, error: checkError } = await supabase
+        .from("employees")
+        .select("email")
+        .ilike("email", normalizedEmail)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existingUser) {
+        showMessage("This email is already registered.", "warning");
+        setLoading(false);
+        return;
+      }
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expire = new Date(Date.now() + 15 * 60 * 1000).toISOString();
       const emailResult = await sendVerificationCodeEmail(

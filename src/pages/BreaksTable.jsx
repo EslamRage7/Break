@@ -107,7 +107,15 @@ export default function BreaksTable() {
         const breakRows = adminData?.breaks || [];
 
         setEmployees(employeeRows);
-        setBreaks(breakRows);
+        const latestBreaks = {};
+
+        breakRows.forEach((item) => {
+          if (!latestBreaks[item.user_id]) {
+            latestBreaks[item.user_id] = item;
+          }
+        });
+
+        setBreaks(Object.values(latestBreaks));
       } catch (err) {
         console.error(err);
         showMessage(err.message || "Failed to load breaks table", "error");

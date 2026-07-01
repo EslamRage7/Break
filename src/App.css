@@ -361,7 +361,7 @@ body,
   font-weight: 900;
 }
 .settings-panel p {
-  margin: 0;
+  font-size: 11px;
   color: #475569;
   font-weight: 600;
 }
@@ -409,6 +409,12 @@ body,
 .home-cta .timer-button.secondary {
   background: #0f172a;
   color: #fff;
+}
+.attendance-chip {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  font-size: 10px !important;
 }
 /* end home CTA */
 .settings-form {

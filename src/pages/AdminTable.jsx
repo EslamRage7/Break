@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Button,
   CircularProgress,
   MenuItem,
   Snackbar,
@@ -52,8 +53,16 @@ export default function AdminTable() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [breaks, setBreaks] = useState([]);
+  const [shifts, setShifts] = useState([]);
+  const [employeeShifts, setEmployeeShifts] = useState({});
   const [loading, setLoading] = useState(true);
   const [updatingUserId, setUpdatingUserId] = useState("");
+  const [filters, setFilters] = useState({
+    name: "all",
+    department: "all",
+    shift: "all",
+    role: "all",
+  });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -75,6 +84,83 @@ export default function AdminTable() {
       return acc;
     }, {});
   }, [breaks]);
+
+  const nameOptions = useMemo(() => {
+    const uniqueNames = new Map();
+
+    employees.forEach((employee) => {
+      const fullName =
+        `${employee.first_name || ""} ${employee.last_name || ""}`.trim();
+      if (fullName && !uniqueNames.has(fullName)) {
+        uniqueNames.set(fullName, fullName);
+      }
+    });
+
+    return Array.from(uniqueNames.values()).sort((a, b) => a.localeCompare(b));
+  }, [employees]);
+
+  const departmentOptions = useMemo(() => {
+    return Object.entries(departmentNames).map(([value, label]) => ({
+      value,
+      label,
+    }));
+  }, []);
+
+  const normalizeDepartmentValue = (value) => {
+    const text = `${value || ""}`.trim().toLowerCase();
+
+    if (!text) return "";
+
+    const compact = text.replace(/[^a-z0-9]+/g, "");
+
+    const departmentCode = Object.keys(departmentNames).find((key) => {
+      return key.toLowerCase() === text || key.toLowerCase() === compact;
+    });
+
+    if (departmentCode) {
+      return departmentCode.toLowerCase();
+    }
+
+    const labelMatch = Object.entries(departmentNames).find(([, label]) => {
+      const normalizedLabel = `${label}`
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+      return normalizedLabel === compact;
+    });
+
+    return labelMatch ? labelMatch[0].toLowerCase() : compact;
+  };
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((employee) => {
+      const fullName =
+        `${employee.first_name || ""} ${employee.last_name || ""}`
+          .trim()
+          .toLowerCase();
+      const selectedRole = employee.role || "employee";
+      const selectedShift = employeeShifts[employee.user_id] || "";
+      const employeeDepartmentValue = normalizeDepartmentValue(
+        employee.department,
+      );
+      const filterDepartmentValue = normalizeDepartmentValue(
+        filters.department,
+      );
+      const normalizedFilter = (value) => `${value || ""}`.trim().toLowerCase();
+
+      const matchesName =
+        filters.name === "all" || fullName === normalizedFilter(filters.name);
+      const matchesDepartment =
+        filters.department === "all" ||
+        employeeDepartmentValue === filterDepartmentValue;
+      const matchesShift =
+        filters.shift === "all" || selectedShift === filters.shift;
+      const matchesRole =
+        filters.role === "all" || selectedRole === filters.role;
+
+      return matchesName && matchesDepartment && matchesShift && matchesRole;
+    });
+  }, [employees, employeeShifts, filters]);
 
   useEffect(() => {
     const loadAdminData = async () => {
@@ -117,6 +203,30 @@ export default function AdminTable() {
 
         setEmployees(employeeRows);
         setBreaks(breakRows);
+
+        const { data: shiftRows, error: shiftError } = await supabase
+          .from("shifts")
+          .select("*")
+          .order("start_time");
+        console.log("shiftRows", shiftRows);
+        console.log("shiftError", shiftError);
+        if (shiftError) throw shiftError;
+
+        setShifts(shiftRows || []);
+        console.log("shiftRows", shiftRows);
+
+        const { data: employeeShiftRows, error: employeeShiftError } =
+          await supabase.from("employee_shifts").select("user_id, shift_id");
+
+        if (employeeShiftError) throw employeeShiftError;
+
+        const map = {};
+
+        employeeShiftRows.forEach((item) => {
+          map[item.user_id] = item.shift_id;
+        });
+
+        setEmployeeShifts(map);
       } catch (err) {
         console.error(err);
         showMessage(err.message || "Failed to load admin table", "error");
@@ -158,6 +268,41 @@ export default function AdminTable() {
       setUpdatingUserId("");
     }
   };
+  const saveShift = async (userId, shiftId) => {
+    try {
+      const { error } = await supabase.from("employee_shifts").upsert(
+        {
+          user_id: userId,
+          shift_id: shiftId,
+          from_date: new Date().toISOString().split("T")[0],
+        },
+        {
+          onConflict: "user_id",
+        },
+      );
+
+      if (error) throw error;
+
+      setEmployeeShifts((prev) => ({
+        ...prev,
+        [userId]: shiftId,
+      }));
+
+      showMessage("Shift updated successfully", "success");
+    } catch (err) {
+      console.error(err);
+
+      showMessage(err.message, "error");
+    }
+  };
+  const handleClearFilters = () => {
+    setFilters({
+      name: "all",
+      department: "all",
+      shift: "all",
+      role: "all",
+    });
+  };
 
   return (
     <div className="dashboard-layout">
@@ -182,6 +327,99 @@ export default function AdminTable() {
             </div>
           )}
 
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 12,
+              marginBottom: 16,
+              alignItems: "end",
+            }}>
+            <TextField
+              select
+              size="small"
+              label="Name"
+              value={filters.name}
+              sx={{ minWidth: 180 }}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  name: event.target.value,
+                }))
+              }>
+              <MenuItem value="all">All</MenuItem>
+              {nameOptions.map((name) => (
+                <MenuItem key={name} value={name.toLowerCase()}>
+                  {name}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              size="small"
+              label="Department"
+              value={filters.department}
+              sx={{ minWidth: 180 }}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  department: event.target.value,
+                }))
+              }>
+              <MenuItem value="all">All</MenuItem>
+              {departmentOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              size="small"
+              label="Shift"
+              value={filters.shift}
+              sx={{ minWidth: 180 }}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  shift: event.target.value,
+                }))
+              }>
+              <MenuItem value="all">All</MenuItem>
+              {shifts.map((shift) => (
+                <MenuItem key={shift.id} value={shift.id}>
+                  {shift.shift_name}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              size="small"
+              label="Role"
+              value={filters.role}
+              sx={{ minWidth: 180 }}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  role: event.target.value,
+                }))
+              }>
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="employee">Employee</MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+            </TextField>
+
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleClearFilters}>
+              Clear
+            </Button>
+          </div>
+
           {!loading && isAdmin && (
             <div className="admin-table-wrap">
               <table className="admin-table">
@@ -191,27 +429,14 @@ export default function AdminTable() {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Department</th>
-                    {/* <th>Used</th> */}
-                    <th>Last Break</th>
+                    <th>Shift</th>
                     <th>Role</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {employees.map((employee, index) => {
+                  {filteredEmployees.map((employee, index) => {
                     const employeeBreaks = breaksByUser[employee.user_id] || [];
-                    const totalUsed = employeeBreaks.reduce(
-                      (sum, item) => sum + calculateUsedMinutes(item),
-                      0,
-                    );
-                    const lastBreak = [...employeeBreaks].sort(
-                      (a, b) =>
-                        new Date(b.start_time || 0) -
-                        new Date(a.start_time || 0),
-                    )[0];
-                    const lastBreakLabel = lastBreak
-                      ? `${formatDateTime(lastBreak.start_time)} • ${calculateUsedMinutes(lastBreak)} min`
-                      : "-";
 
                     return (
                       <tr key={employee.user_id}>
@@ -229,15 +454,24 @@ export default function AdminTable() {
                             employee.department ||
                             "-"}
                         </td>
-                        {/* <td>
-                          <span className="table-pill">
-                            {totalUsed > 0 ? `${totalUsed} min` : "-"}
-                          </span>
-                        </td> */}
+
                         <td>
-                          <span className="table-pill table-pill-neutral">
-                            {lastBreakLabel}
-                          </span>
+                          <TextField
+                            size="small"
+                            select
+                            value={employeeShifts[employee.user_id] || ""}
+                            sx={{ minWidth: 180 }}
+                            onChange={(e) =>
+                              saveShift(employee.user_id, e.target.value)
+                            }>
+                            <MenuItem value="">Select Shift</MenuItem>
+
+                            {shifts.map((shift) => (
+                              <MenuItem key={shift.id} value={shift.id}>
+                                {shift.shift_name}
+                              </MenuItem>
+                            ))}
+                          </TextField>
                         </td>
                         <td>
                           <TextField
@@ -257,6 +491,13 @@ export default function AdminTable() {
                   })}
                 </tbody>
               </table>
+
+              {filteredEmployees.length === 0 && (
+                <div
+                  style={{ padding: 16, textAlign: "center", color: "#666" }}>
+                  No employees match the selected filters.
+                </div>
+              )}
             </div>
           )}
         </div>

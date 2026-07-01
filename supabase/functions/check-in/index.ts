@@ -9,29 +9,11 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders,
-    });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const { user_id } = await req.json();
-
-    if (!user_id) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: "user_id is required",
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-    }
 
     const supabase = createClient(
       Deno.env.get("PROJECT_URL") ?? Deno.env.get("SUPABASE_URL")!,
@@ -39,19 +21,55 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Africa/Cairo",
-    }).format(new Date());
+    const egyptNow = new Date(
+      new Date().toLocaleString("en-US", {
+        timeZone: "Africa/Cairo",
+      }),
+    );
 
-    const { data: existing, error: existingError } = await supabase
-      .from("attendance")
-      .select("*")
+    const attendanceDate = egyptNow.toISOString().split("T")[0];
+
+    // Get current shift or use a safe fallback when none is assigned
+    const { data: shiftData, error: shiftError } = await supabase
+      .from("employee_shifts")
+      .select(
+        `
+        shift_id,
+        shifts(
+          shift_name,
+          start_time,
+          end_time
+        )
+      `,
+      )
       .eq("user_id", user_id)
-      .gte("check_in", `${today}T00:00:00`)
-      .lte("check_in", `${today}T23:59:59`)
+      .lte("from_date", attendanceDate)
+      .or(`to_date.is.null,to_date.gte.${attendanceDate}`)
       .maybeSingle();
 
-    if (existingError) throw existingError;
+    if (shiftError) throw shiftError;
+
+    const shift = shiftData?.shifts;
+    const shiftName = shift?.shift_name || "No Shift";
+
+    const formatTimeValue = (date) => {
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const seconds = String(date.getSeconds()).padStart(2, "0");
+      return `${hours}:${minutes}:${seconds}`;
+    };
+
+    const defaultShiftEnd = new Date(egyptNow.getTime() + 8 * 60 * 60 * 1000);
+    const shiftStartTime = shift?.start_time || formatTimeValue(egyptNow);
+    const shiftEndTime = shift?.end_time || formatTimeValue(defaultShiftEnd);
+
+    // Already checked in today?
+    const { data: existing } = await supabase
+      .from("attendance")
+      .select("id")
+      .eq("user_id", user_id)
+      .eq("attendance_date", attendanceDate)
+      .maybeSingle();
 
     if (existing) {
       return new Response(
@@ -70,10 +88,20 @@ Deno.serve(async (req) => {
     }
 
     const { data, error } = await supabase
+
       .from("attendance")
       .insert({
         user_id,
-        check_in: new Date().toISOString(),
+        attendance_date: attendanceDate,
+
+        shift_name: shiftName,
+
+        shift_start: shiftStartTime,
+        shift_end: shiftEndTime,
+
+        check_in: egyptNow.toISOString(),
+
+        status: "Working",
       })
       .select()
       .single();
@@ -96,7 +124,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        message: err instanceof Error ? err.message : "Unknown error",
+        message: err.message,
       }),
       {
         status: 500,

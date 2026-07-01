@@ -23,11 +23,14 @@ const formatDateTime = (value) => {
   }).format(new Date(value));
 };
 
-const formatWorkDuration = (minutes) => {
+const formatMinutesDuration = (minutes) => {
   if (!minutes && minutes !== 0) return "-";
 
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  const value = Number(minutes);
+  if (!Number.isFinite(value)) return "-";
+
+  const hours = Math.floor(value / 60);
+  const mins = value % 60;
 
   if (hours && mins) {
     return `${hours}h ${mins}m`;
@@ -93,20 +96,43 @@ export default function AttendanceTable() {
         if (employeeError) throw employeeError;
         setEmployees(employeeRows || []);
 
-        let attendanceQuery = supabase
-          .from("attendance")
-          .select(
-            "id,user_id,check_in,check_out,work_minutes,status,created_at",
-          );
+        let logsData = [];
 
-        if (!adminView) {
-          attendanceQuery = attendanceQuery.eq("user_id", user.id);
+        if (adminView) {
+          const { data, error } = await supabase.rpc("get_latest_attendance");
+
+          if (error) throw error;
+
+          logsData = data;
+        } else {
+          const { data, error } = await supabase
+            .from("attendance")
+            .select(
+              `
+      id,
+      user_id,
+      attendance_date,
+      shift_name,
+      shift_start,
+      shift_end,
+      check_in,
+      check_out,
+      work_minutes,
+      late_minutes,
+      early_minutes,
+      overtime_minutes,
+      status,
+      created_at
+    `,
+            )
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
+
+          if (error) throw error;
+
+          logsData = data;
         }
 
-        const { data: logsData, error: logsError } =
-          await attendanceQuery.order("created_at", { ascending: false });
-
-        if (logsError) throw logsError;
         setLogs(logsData || []);
       } catch (err) {
         console.error(err);
@@ -272,65 +298,89 @@ export default function AttendanceTable() {
                     <tr>
                       <th>#</th>
                       <th>Employee</th>
+                      <th>Shift</th>
+                      <th>Shift Start</th>
+                      <th>Shift End</th>
                       <th>Check In</th>
                       <th>Check Out</th>
-                      <th>Minutes</th>
+                      <th>Late</th>
+                      <th>Early Leave</th>
+                      <th>Overtime</th>
+                      <th>Work Time</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredLogs.length === 0 ? (
                       <tr>
-                        <td colSpan={6}>
+                        <td colSpan={12}>
                           {isAdmin
                             ? "No attendance logs found."
                             : "No attendance logs found for your account."}
                         </td>
                       </tr>
                     ) : (
-                      filteredLogs.map((l, i) => {
-                        console.log("row:", l);
-                        return (
-                          <tr key={l.id}>
-                            <td>
-                              <strong>{i + 1}</strong>
-                            </td>
-                            <td>
-                              <span
-                                onClick={() =>
-                                  isAdmin &&
-                                  navigate(`/employee-attendance/${l.user_id}`)
-                                }
-                                style={{
-                                  cursor: isAdmin ? "pointer" : "default",
-                                  color: isAdmin ? "#0ea5e9" : "inherit",
-                                  fontWeight: 600,
-                                }}>
-                                {employeeName(l.user_id)}
-                              </span>
-                            </td>
-                            <td>{formatDateTime(l.check_in)}</td>
-                            <td>{formatDateTime(l.check_out)}</td>
-                            <td>{formatWorkDuration(l.work_minutes)}</td>
-                            <td>
-                              <span
-                                className={`table-pill ${
-                                  !l.check_in
-                                    ? "table-pill-danger"
-                                    : l.check_in && !l.check_out
-                                      ? "table-pill-success"
-                                      : "table-pill-neutral"
-                                }`}>
-                                {!l.check_in
-                                  ? "Absent"
-                                  : l.check_in && !l.check_out
-                                    ? "Working"
-                                    : "Shift Finished"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
+                      filteredLogs.map((l, i) => (
+                        <tr key={l.id}>
+                          <td>
+                            <strong>{i + 1}</strong>
+                          </td>
+
+                          <td>
+                            <span
+                              onClick={() =>
+                                isAdmin &&
+                                navigate(`/employee-attendance/${l.user_id}`)
+                              }
+                              style={{
+                                cursor: isAdmin ? "pointer" : "default",
+                                color: isAdmin ? "#0ea5e9" : "inherit",
+                                fontWeight: 600,
+                              }}>
+                              {employeeName(l.user_id)}
+                            </span>
+                          </td>
+
+                          <td>{l.shift_name || "-"}</td>
+
+                          <td>{formatDateTime(l.shift_start)}</td>
+
+                          <td>{formatDateTime(l.shift_end)}</td>
+
+                          <td>{formatDateTime(l.check_in)}</td>
+
+                          <td>{formatDateTime(l.check_out)}</td>
+
+                          <td>{formatMinutesDuration(l.late_minutes)}</td>
+
+                          <td>{formatMinutesDuration(l.early_minutes)}</td>
+
+                          <td>{formatMinutesDuration(l.overtime_minutes)}</td>
+
+                          <td>{formatMinutesDuration(l.work_minutes)}</td>
+
+                          <td>
+                            <span
+                              className={`table-pill ${
+                                l.status === "Working"
+                                  ? "table-pill-success"
+                                  : l.status === "Completed"
+                                    ? "table-pill-info"
+                                    : l.status.includes("Late")
+                                      ? "table-pill-warning"
+                                      : l.status.includes("Early")
+                                        ? "table-pill-danger"
+                                        : l.status.includes("Overtime")
+                                          ? "table-pill-primary"
+                                          : l.status === "Absent"
+                                            ? "table-pill-danger"
+                                            : "table-pill-neutral"
+                              }`}>
+                              {l.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>

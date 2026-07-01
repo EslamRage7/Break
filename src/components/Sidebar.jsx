@@ -244,6 +244,18 @@ export default function Sidebar() {
             <span>Settings</span>
           </NavLink>
 
+          {role === "admin" && (
+            <>
+              <NavLink
+                to="/table"
+                className={navLinkClass}
+                onClick={closeSidebar}>
+                <TableChartRoundedIcon fontSize="small" />
+                <span>Employees</span>
+              </NavLink>
+            </>
+          )}
+
           <NavLink
             to="/attendance"
             className={navLinkClass}
@@ -254,14 +266,6 @@ export default function Sidebar() {
 
           {role === "admin" && (
             <>
-              <NavLink
-                to="/table"
-                className={navLinkClass}
-                onClick={closeSidebar}>
-                <TableChartRoundedIcon fontSize="small" />
-                <span>Employees</span>
-              </NavLink>
-
               <NavLink
                 to="/breaks"
                 className={navLinkClass}

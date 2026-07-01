@@ -190,6 +190,16 @@ export default function Break({ attendanceCompletedToday = false }) {
     setRemainingBreak(BREAK_LIMIT);
   }, []);
 
+  const completeBreakFlow = useCallback(async () => {
+    setRunning(false);
+    setIsFinished(true);
+    setIsDisabled(true);
+    setMinutes(0);
+    setSeconds(0);
+    setRemainingBreak(0);
+    setSession(null);
+  }, []);
+
   const startBreak = async (force = false) => {
     if (!user) return;
 
@@ -339,12 +349,7 @@ export default function Break({ attendanceCompletedToday = false }) {
     if (remaining <= 0 && running && session.status !== "completed") {
       const finalize = async () => {
         clearInterval(intervalRef.current);
-        setRunning(false);
-        setIsFinished(true);
-        setIsDisabled(true);
-        setMinutes(0);
-        setSeconds(0);
-        setSession(null);
+        await completeBreakFlow();
 
         await supabase
           .from("break_sessions")
@@ -364,8 +369,7 @@ export default function Break({ attendanceCompletedToday = false }) {
   }, [minutes, seconds, running, session, user, loadTodayUsage]);
 
   const finishBreak = async () => {
-    setIsFinished(true);
-    setIsDisabled(true);
+    await completeBreakFlow();
   };
 
   useEffect(() => {
@@ -396,10 +400,15 @@ export default function Break({ attendanceCompletedToday = false }) {
     if (!attendanceCompletedToday) return;
 
     clearInterval(intervalRef.current);
+    setRunning(false);
+    setIsFinished(false);
+    setSession(null);
+    setMinutes(0);
+    setSeconds(0);
+    setRemainingBreak(0);
   }, [attendanceCompletedToday]);
 
-  const shouldHideBreak =
-    attendanceCompletedToday || (isFinished && !running && !session);
+  const shouldHideBreak = attendanceCompletedToday || (!user && !session);
 
   if (shouldHideBreak) {
     return null;
@@ -465,11 +474,8 @@ export default function Break({ attendanceCompletedToday = false }) {
         )}
 
         {isFinished && (
-          <button
-            className="timer-button primary"
-            onClick={finishBreak}
-            disabled>
-            Completed
+          <button className="timer-button primary" onClick={finishBreak}>
+            Finish
           </button>
         )}
 

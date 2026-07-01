@@ -16,31 +16,12 @@ import { supabase } from "../supabaseClient";
 const formatDateTime = (value) => {
   if (!value) return "-";
 
-  const text = `${value}`.trim();
+  const text = String(value).trim();
 
   if (!text) return "-";
 
-  const timeOnlyMatch = text.match(/^\d{1,2}:\d{2}(?::\d{2})?$/);
-  if (timeOnlyMatch) {
+  if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(text)) {
     return text;
-  }
-
-  const isoMatch = text.match(
-    /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,3})?)(?:Z|[+-]\d{2}:\d{2})?$/,
-  );
-
-  if (isoMatch) {
-    const [, datePart, timePart] = isoMatch;
-    const normalizedValue = `${datePart}T${timePart.replace(/\.\d+$/, "")}Z`;
-    const parsedDate = new Date(normalizedValue);
-
-    if (!Number.isNaN(parsedDate.getTime())) {
-      return new Intl.DateTimeFormat("en", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "UTC",
-      }).format(parsedDate);
-    }
   }
 
   const parsedDate = new Date(text);
@@ -49,7 +30,7 @@ const formatDateTime = (value) => {
     return new Intl.DateTimeFormat("en", {
       dateStyle: "medium",
       timeStyle: "short",
-      timeZone: "UTC",
+      timeZone: "Africa/Cairo",
     }).format(parsedDate);
   }
 
@@ -137,6 +118,17 @@ export default function AttendanceTable() {
           if (error) throw error;
 
           logsData = data;
+          if (logsData?.length) {
+            console.log("First Row:", logsData[0]);
+            console.log("check_in:", logsData[0].check_in);
+            console.log("check_out:", logsData[0].check_out);
+            console.log("shift_start:", logsData[0].shift_start);
+            console.log("shift_end:", logsData[0].shift_end);
+          }
+
+          setLogs(logsData || []);
+
+          console.log("logsData:", logsData);
         } else {
           const { data, error } = await supabase
             .from("attendance")

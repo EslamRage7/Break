@@ -40,22 +40,12 @@ Deno.serve(async (req) => {
       (checkOut.getTime() - checkIn.getTime()) / 60000,
     );
 
-    const createShiftDateTime = (timeValue) => {
-      const [hours = "0", minutes = "0", seconds = "0"] =
-        `${timeValue || "00:00:00"}`.split(":").map((part) => part.trim());
-
-      const date = new Date(checkIn);
-      date.setHours(Number(hours), Number(minutes), Number(seconds), 0);
-      return date;
-    };
-
-    const shiftStart = createShiftDateTime(attendance.shift_start);
-    const shiftEnd = createShiftDateTime(attendance.shift_end);
+    const shiftStart = new Date(attendance.shift_start);
+    const shiftEnd = new Date(attendance.shift_end);
 
     if (shiftEnd <= shiftStart) {
       shiftEnd.setDate(shiftEnd.getDate() + 1);
     }
-
     let lateMinutes = 0;
     let earlyMinutes = 0;
     let overtimeMinutes = 0;

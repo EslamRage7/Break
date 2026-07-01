@@ -411,9 +411,6 @@ body,
   color: #fff;
 }
 .attendance-chip {
-  position: absolute;
-  right: 4px;
-  top: 4px;
   font-size: 10px !important;
 }
 /* end home CTA */

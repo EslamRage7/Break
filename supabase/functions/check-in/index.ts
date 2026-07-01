@@ -21,13 +21,13 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const egyptNow = new Date(
-      new Date().toLocaleString("en-US", {
-        timeZone: "Africa/Cairo",
-      }),
-    );
+    const now = new Date();
 
-    const attendanceDate = egyptNow.toISOString().split("T")[0];
+    const cairoToday = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+    }).format(now);
+
+    const attendanceDate = cairoToday;
 
     // Get current shift or use a safe fallback when none is assigned
     const { data: shiftData, error: shiftError } = await supabase
@@ -51,17 +51,52 @@ Deno.serve(async (req) => {
 
     const shift = shiftData?.shifts;
     const shiftName = shift?.shift_name || "No Shift";
+    // Allow check-in one hour before shift starts
+    if (shift?.start_time) {
+      const shiftStart = new Date(`${attendanceDate}T${shift.start_time}`);
 
-    const formatTimeValue = (date) => {
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
-      const seconds = String(date.getSeconds()).padStart(2, "0");
-      return `${hours}:${minutes}:${seconds}`;
+      const checkInOpen = new Date(shiftStart);
+      checkInOpen.setHours(checkInOpen.getHours() - 1);
+
+      if (now < checkInOpen) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: `Check-in is available from ${checkInOpen.toLocaleTimeString(
+              "en-US",
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              },
+            )}`,
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+    }
+
+    const buildTimestampFromTime = (timeValue) => {
+      const [h, m, s = "00"] = timeValue.split(":");
+
+      const date = new Date(now);
+
+      date.setUTCHours(Number(h) - 3, Number(m), Number(s), 0);
+
+      return date.toISOString();
     };
-
-    const defaultShiftEnd = new Date(egyptNow.getTime() + 8 * 60 * 60 * 1000);
-    const shiftStartTime = shift?.start_time || formatTimeValue(egyptNow);
-    const shiftEndTime = shift?.end_time || formatTimeValue(defaultShiftEnd);
+    const defaultShiftEnd = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const shiftStartTime = shift?.start_time
+      ? buildTimestampFromTime(shift.start_time)
+      : now.toISOString();
+    const shiftEndTime = shift?.end_time
+      ? buildTimestampFromTime(shift.end_time)
+      : defaultShiftEnd.toISOString();
 
     // Already checked in today?
     const { data: existing } = await supabase
@@ -86,7 +121,12 @@ Deno.serve(async (req) => {
         },
       );
     }
-
+    console.log({
+      shiftStartTime,
+      shiftEndTime,
+      shiftStartRaw: shift?.start_time,
+      shiftEndRaw: shift?.end_time,
+    });
     const { data, error } = await supabase
 
       .from("attendance")
@@ -99,7 +139,7 @@ Deno.serve(async (req) => {
         shift_start: shiftStartTime,
         shift_end: shiftEndTime,
 
-        check_in: egyptNow.toISOString(),
+        check_in: now.toISOString(),
 
         status: "Working",
       })

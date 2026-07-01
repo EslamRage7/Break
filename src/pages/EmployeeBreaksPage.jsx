@@ -8,11 +8,42 @@ import { supabase } from "../supabaseClient";
 const formatDateTime = (value) => {
   if (!value) return "-";
 
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Africa/Cairo",
-  }).format(new Date(value));
+  const text = `${value}`.trim();
+  if (!text) return "-";
+
+  const timeOnlyMatch = text.match(/^\d{1,2}:\d{2}(?::\d{2})?$/);
+  if (timeOnlyMatch) {
+    return text;
+  }
+
+  const isoMatch = text.match(
+    /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,3})?)(?:Z|[+-]\d{2}:\d{2})?$/,
+  );
+
+  if (isoMatch) {
+    const [, datePart, timePart] = isoMatch;
+    const normalizedValue = `${datePart}T${timePart.replace(/\.\d+$/, "")}Z`;
+    const parsedDate = new Date(normalizedValue);
+
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return new Intl.DateTimeFormat("en", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "UTC",
+      }).format(parsedDate);
+    }
+  }
+
+  const parsedDate = new Date(text);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }).format(parsedDate);
+  }
+
+  return text;
 };
 
 const formatDuration = (minutes, seconds) => {

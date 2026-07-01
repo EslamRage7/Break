@@ -325,13 +325,6 @@ function Home() {
                   </Typography>
                 </Box>
 
-                <Chip
-                  className="attendance-chip"
-                  label={isCheckedIn ? "Checked In" : "Not Checked In"}
-                  color={isCheckedIn ? "success" : "default"}
-                  variant={isCheckedIn ? "filled" : "outlined"}
-                />
-
                 <Box
                   sx={{
                     display: "flex",
@@ -339,6 +332,12 @@ function Home() {
                     gap: 1.5,
                     flexWrap: "wrap",
                   }}>
+                  <Chip
+                    className="attendance-chip"
+                    label={isCheckedIn ? "Checked In" : "Not Checked In"}
+                    color={isCheckedIn ? "success" : "default"}
+                    variant={isCheckedIn ? "filled" : "outlined"}
+                  />
                   <Button
                     variant="contained"
                     color={isCheckedIn ? "error" : "success"}

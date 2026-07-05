@@ -30,13 +30,13 @@ function App() {
     } else if (path === "/home") {
       title = "Home | Mobile 2000";
     } else if (path === "/settings") {
-      title = "Settings | Mobile 2000";
+      title = "Profile | Mobile 2000";
     } else if (path === "/attendance") {
       title = "Attendance | Mobile 2000";
     } else if (path === "/breaks") {
       title = "Breaks | Mobile 2000";
     } else if (path === "/table") {
-      title = "Admin Table | Mobile 2000";
+      title = "Employees | Mobile 2000";
     } else if (path === "/break") {
       title = "Break | Mobile 2000";
     } else if (path.startsWith("/employee-attendance/")) {

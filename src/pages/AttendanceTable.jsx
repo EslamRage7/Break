@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import { supabase } from "../supabaseClient";
+import Typography from "@mui/material/Typography";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -254,7 +255,9 @@ export default function AttendanceTable() {
       <section className="dashboard-content">
         <div className="settings-panel admin-panel">
           <div className="settings-header">
-            <h1>{isAdmin ? "Attendance Logs" : "My Attendance"}</h1>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
+              {isAdmin ? "Attendance Logs" : "My Attendance"}
+            </Typography>
           </div>
 
           {loading && (

@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
+import Typography from "@mui/material/Typography";
 
 export default function Settings() {
   const [userId, setUserId] = useState("");
@@ -198,7 +199,9 @@ export default function Settings() {
       <section className="dashboard-content ">
         <div className="settings-panel">
           <div className="settings-header">
-            <h1>Profile</h1>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
+              Profile Settings
+            </Typography>
           </div>
 
           <div className="settings-form">

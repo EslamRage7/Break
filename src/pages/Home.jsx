@@ -268,7 +268,11 @@ function Home() {
         <section className="dashboard-content">
           <div className="settings-panel">
             <div className="settings-header text-capitalize">
-              <h1>Welcome{displayName ? `, ${displayName}` : ""}</h1>
+              <Typography
+                variant="h4"
+                sx={{ fontWeight: 800, color: "#0f172a" }}>
+                Welcome{displayName ? `, ${displayName}` : ""}
+              </Typography>
             </div>
             {showCompletedMessage ? (
               <Grow

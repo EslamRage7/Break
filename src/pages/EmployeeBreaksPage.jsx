@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import { supabase } from "../supabaseClient";
+import Typography from "@mui/material/Typography";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -158,7 +159,9 @@ export default function EmployeeBreaksPage() {
       <section className="dashboard-content">
         <div className="settings-panel admin-panel">
           <div className="settings-header">
-            <h1>Previous Breaks</h1>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
+              Previous Breaks
+            </Typography>
           </div>
 
           <br />

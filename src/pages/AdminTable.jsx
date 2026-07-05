@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import Sidebar from "../components/Sidebar";
 import { supabase } from "../supabaseClient";
+import Typography from "@mui/material/Typography";
 import Footer from "../components/Footer";
 
 const departmentNames = {
@@ -324,7 +325,9 @@ export default function AdminTable() {
       <section className="dashboard-content">
         <div className="settings-panel admin-panel">
           <div className="settings-header">
-            <h1>Employees Table</h1>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
+              Employees Table
+            </Typography>
           </div>
 
           {loading && (

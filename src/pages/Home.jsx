@@ -17,6 +17,7 @@ function Home() {
   const [showCompletedMessage, setShowCompletedMessage] = useState(false);
   const [attendanceCompletedToday, setAttendanceCompletedToday] =
     useState(false);
+  const [breakRefreshKey, setBreakRefreshKey] = useState(0);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const dayKeyRef = useRef("");
 
@@ -166,12 +167,12 @@ function Home() {
         setIsCheckedIn(false);
         setShowCompletedMessage(true);
         setAttendanceCompletedToday(true);
-
-        // Hide the message after 4 seconds
+        setBreakRefreshKey((prev) => prev + 1);
       } else {
         setIsCheckedIn(true);
         setShowCompletedMessage(false);
         setAttendanceCompletedToday(false);
+        setBreakRefreshKey((prev) => prev + 1);
       }
 
       await checkAttendance();
@@ -418,7 +419,10 @@ function Home() {
             )}
 
             {isCheckedIn && (
-              <Break attendanceCompletedToday={attendanceCompletedToday} />
+              <Break
+                attendanceCompletedToday={attendanceCompletedToday}
+                refreshKey={breakRefreshKey}
+              />
             )}
           </div>
 

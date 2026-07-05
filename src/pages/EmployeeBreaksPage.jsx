@@ -29,7 +29,7 @@ const formatDateTime = (value) => {
       return new Intl.DateTimeFormat("en", {
         dateStyle: "medium",
         timeStyle: "short",
-        timeZone: "UTC",
+        timeZone: "Africa/Cairo",
       }).format(parsedDate);
     }
   }
@@ -39,7 +39,7 @@ const formatDateTime = (value) => {
     return new Intl.DateTimeFormat("en", {
       dateStyle: "medium",
       timeStyle: "short",
-      timeZone: "UTC",
+      timeZone: "Africa/Cairo",
     }).format(parsedDate);
   }
 
@@ -176,8 +176,7 @@ export default function EmployeeBreaksPage() {
               borderRadius: 8,
               cursor: "pointer",
               fontWeight: 600,
-            }}
-          >
+            }}>
             ← Back to all breaks
           </button>
 
@@ -233,8 +232,7 @@ export default function EmployeeBreaksPage() {
                                 : item.status === "active"
                                   ? "table-pill-success"
                                   : "table-pill-neutral"
-                            }`}
-                          >
+                            }`}>
                             {getStatusLabel(item)}
                           </span>
                         </td>
@@ -253,8 +251,7 @@ export default function EmployeeBreaksPage() {
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}>
         <Alert severity={snackbar.severity} variant="filled">
           {snackbar.message}
         </Alert>

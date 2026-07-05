@@ -72,7 +72,7 @@ export default function EmployeeAttendancePage() {
   const pageTitle = useMemo(() => {
     if (!userId) return "Attendance History";
     if (employee?.first_name || employee?.last_name || employee?.email) {
-      return `${employeeName} Attendance History`;
+      return ` Attendance History`;
     }
     return "Employee Attendance History";
   }, [employee, employeeName, userId]);
@@ -192,8 +192,10 @@ export default function EmployeeAttendancePage() {
           {!loading && isAdmin && (
             <div>
               <div style={{ marginBottom: 12, fontWeight: 700 }}>
-                Attendance of{" "}
-                <span style={{ color: "#00a6eb" }}>{employeeName}</span>
+                Attendance of
+                <span style={{ color: "#00a6eb", margin: "0 8px" }}>
+                  {employeeName}
+                </span>
               </div>
 
               <div className="admin-table-wrap">
@@ -201,10 +203,10 @@ export default function EmployeeAttendancePage() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Check In</th>
-                      <th>Check Out</th>
-                      <th>Minutes</th>
-                      <th>Status</th>
+                      <th className="text-center">Check In</th>
+                      <th className="text-center">Check Out</th>
+                      <th className="text-center">Minutes</th>
+                      <th className="text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -220,10 +222,16 @@ export default function EmployeeAttendancePage() {
                           <td>
                             <strong>{index + 1}</strong>
                           </td>
-                          <td>{formatDateTime(log.check_in)}</td>
-                          <td>{formatDateTime(log.check_out)}</td>
-                          <td>{log.work_minutes || 0}</td>
-                          <td>
+                          <td className="text-center">
+                            {formatDateTime(log.check_in)}
+                          </td>
+                          <td className="text-center">
+                            {formatDateTime(log.check_out)}
+                          </td>
+                          <td className="text-center">
+                            {log.work_minutes || 0}
+                          </td>
+                          <td className="text-center">
                             <span
                               className={`table-pill ${
                                 !log.check_in

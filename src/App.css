@@ -356,10 +356,11 @@ body,
   backdrop-filter: blur(10px);
 }
 .settings-panel h1 {
-  margin: 0 0 10px;
   color: #0f172a;
-  font-weight: 900;
+  font-weight: bold;
+  font-size: 50px;
 }
+
 .settings-panel p {
   font-size: 11px;
   color: #475569;
@@ -370,6 +371,7 @@ body,
   display: inline-block;
   max-width: 680px;
   margin-bottom: 24px;
+  font-size: 18px;
 }
 
 .settings-header::after {
@@ -587,6 +589,11 @@ body,
   background: #00a6eb;
   color: #ffffff;
   box-shadow: 0 12px 24px rgba(0, 166, 235, 0.28);
+}
+.timer-button.primary.finished {
+  background: #16a34a;
+  box-shadow: 0 12px 24px rgba(22, 163, 74, 0.24);
+  cursor: default;
 }
 .timer-button.secondary {
   background: #0f172a;

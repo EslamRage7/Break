@@ -428,7 +428,13 @@ export default function AdminTable() {
             <Button
               variant="outlined"
               size="small"
-              onClick={handleClearFilters}>
+              onClick={handleClearFilters}
+              sx={{
+                height: 40,
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 600,
+              }}>
               Clear
             </Button>
           </div>
@@ -440,10 +446,10 @@ export default function AdminTable() {
                   <tr>
                     <th>#</th>
                     <th>Name</th>
-                    <th>Email</th>
-                    <th>Department</th>
-                    <th>Shift</th>
-                    <th>Role</th>
+                    <th className="text-center">Email</th>
+                    <th className="text-center">Department</th>
+                    <th className="text-center">Shift</th>
+                    <th className="text-center">Role</th>
                   </tr>
                 </thead>
 
@@ -461,14 +467,14 @@ export default function AdminTable() {
                             {employee.first_name} {employee.last_name}
                           </strong>
                         </td>
-                        <td>{employee.email}</td>
-                        <td>
+                        <td className="text-center">{employee.email}</td>
+                        <td className="text-center">
                           {departmentNames[employee.department] ||
                             employee.department ||
                             "-"}
                         </td>
 
-                        <td>
+                        <td className="text-center">
                           <TextField
                             size="small"
                             select
@@ -486,7 +492,7 @@ export default function AdminTable() {
                             ))}
                           </TextField>
                         </td>
-                        <td>
+                        <td className="text-center">
                           <TextField
                             size="small"
                             select

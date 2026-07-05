@@ -6,6 +6,7 @@ import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
+import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import { NavLink, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { supabase } from "../supabaseClient";
@@ -204,8 +205,7 @@ export default function Sidebar() {
         className="sidebar-toggle"
         type="button"
         aria-label={isOpen ? "Close menu" : "Open menu"}
-        onClick={() => setIsOpen((open) => !open)}
-      >
+        onClick={() => setIsOpen((open) => !open)}>
         {isOpen ? <CloseRoundedIcon /> : <MenuRoundedIcon />}
       </button>
 
@@ -231,10 +231,9 @@ export default function Sidebar() {
           <NavLink
             to="/settings"
             className={navLinkClass}
-            onClick={closeSidebar}
-          >
-            <SettingsRoundedIcon fontSize="small" />
-            <span>Settings</span>
+            onClick={closeSidebar}>
+            <PersonRoundedIcon fontSize="small" />
+            <span>Profile</span>
           </NavLink>
 
           {role === "admin" && (
@@ -242,8 +241,7 @@ export default function Sidebar() {
               <NavLink
                 to="/table"
                 className={navLinkClass}
-                onClick={closeSidebar}
-              >
+                onClick={closeSidebar}>
                 <TableChartRoundedIcon fontSize="small" />
                 <span>Employees</span>
               </NavLink>
@@ -253,8 +251,7 @@ export default function Sidebar() {
           <NavLink
             to="/attendance"
             className={navLinkClass}
-            onClick={closeSidebar}
-          >
+            onClick={closeSidebar}>
             <PeopleRoundedIcon fontSize="small" />
             <span>{role === "admin" ? "Attendance" : "My Attendance"}</span>
           </NavLink>
@@ -264,10 +261,9 @@ export default function Sidebar() {
               <NavLink
                 to="/breaks"
                 className={navLinkClass}
-                onClick={closeSidebar}
-              >
+                onClick={closeSidebar}>
                 <AccessTimeRoundedIcon fontSize="small" />
-                <span>All Breaks</span>
+                <span>Breaks</span>
               </NavLink>
             </>
           )}

@@ -31,14 +31,31 @@ const formatDateTime = (value) => {
 
   if (isoMatch) {
     const [, datePart, timePart] = isoMatch;
-    const normalizedValue = `${datePart}T${timePart.replace(/\.\d+$/, "")}Z`;
-    const parsedDate = new Date(normalizedValue);
+
+    const formatDateTime = (value) => {
+      if (!value) return "-";
+
+      const date = new Date(value);
+
+      if (isNaN(date.getTime())) return "-";
+
+      return date.toLocaleString("en-GB", {
+        timeZone: "Africa/Cairo",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    };
+    const parsedDate = new Date(formatDateTime);
 
     if (!Number.isNaN(parsedDate.getTime())) {
       return new Intl.DateTimeFormat("en", {
         dateStyle: "medium",
         timeStyle: "short",
-        timeZone: "UTC",
+        timeZone: "Africa/Cairo",
       }).format(parsedDate);
     }
   }
@@ -48,7 +65,7 @@ const formatDateTime = (value) => {
     return new Intl.DateTimeFormat("en", {
       dateStyle: "medium",
       timeStyle: "short",
-      timeZone: "UTC",
+      timeZone: "Africa/Cairo",
     }).format(parsedDate);
   }
 
@@ -209,8 +226,9 @@ export default function BreaksTable() {
 
   const getStatusLabel = (item) => {
     if (item.is_paused) return "Paused";
-    if (item.status) return item.status;
-    return "-";
+    if ((item.status || "").toLowerCase() === "completed") return "Completed";
+    if ((item.status || "").toLowerCase() === "active") return "Active";
+    return item.status || "-";
   };
 
   return (
@@ -305,6 +323,12 @@ export default function BreaksTable() {
                     setNameQuery("");
                     setDayQuery("");
                     setStatusQuery("all");
+                  }}
+                  sx={{
+                    height: 40,
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
                   }}>
                   Clear
                 </Button>
@@ -350,7 +374,7 @@ export default function BreaksTable() {
                                 background: "transparent",
                                 border: "none",
                                 padding: 0,
-                                color: "#2563eb",
+                                color: "#0ea5e9",
                                 cursor: "pointer",
                                 fontWeight: 600,
                                 textAlign: "left",
@@ -367,7 +391,8 @@ export default function BreaksTable() {
                               className={`table-pill ${
                                 item.is_paused
                                   ? "table-pill-neutral"
-                                  : item.status === "active"
+                                  : (item.status || "").toLowerCase() ===
+                                      "active"
                                     ? "table-pill-success"
                                     : "table-pill-neutral"
                               }`}>

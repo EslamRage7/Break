@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Button,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -239,6 +240,12 @@ export default function AttendanceTable() {
     ).sort((a, b) => a.localeCompare(b));
   }, [employees]);
 
+  const handleClearFilters = () => {
+    setNameQuery("");
+    setDepartmentQuery("");
+    setRoleQuery("");
+  };
+
   console.log(filteredLogs);
 
   return (
@@ -266,16 +273,14 @@ export default function AttendanceTable() {
                     gap: 12,
                     flexWrap: "wrap",
                     marginBottom: 16,
-                  }}
-                >
+                  }}>
                   <FormControl size="small" style={{ minWidth: 220 }}>
                     <InputLabel id="employee-filter-label">Employee</InputLabel>
                     <Select
                       labelId="employee-filter-label"
                       label="Employee"
                       value={nameQuery}
-                      onChange={(event) => setNameQuery(event.target.value)}
-                    >
+                      onChange={(event) => setNameQuery(event.target.value)}>
                       <MenuItem value="">All employees</MenuItem>
                       {employeeOptions.map((employee) => (
                         <MenuItem value={employee.value} key={employee.value}>
@@ -295,8 +300,7 @@ export default function AttendanceTable() {
                       value={departmentQuery}
                       onChange={(event) =>
                         setDepartmentQuery(event.target.value)
-                      }
-                    >
+                      }>
                       <MenuItem value="">All departments</MenuItem>
                       {departments.map((department) => (
                         <MenuItem value={department} key={department}>
@@ -312,8 +316,7 @@ export default function AttendanceTable() {
                       labelId="role-filter-label"
                       label="Role"
                       value={roleQuery}
-                      onChange={(event) => setRoleQuery(event.target.value)}
-                    >
+                      onChange={(event) => setRoleQuery(event.target.value)}>
                       <MenuItem value="">All roles</MenuItem>
                       {roles.map((role) => (
                         <MenuItem value={role} key={role}>
@@ -322,6 +325,19 @@ export default function AttendanceTable() {
                       ))}
                     </Select>
                   </FormControl>
+
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleClearFilters}
+                    sx={{
+                      height: 40,
+                      borderRadius: 2,
+                      textTransform: "none",
+                      fontWeight: 600,
+                    }}>
+                    Clear
+                  </Button>
                 </div>
               )}
 
@@ -331,10 +347,10 @@ export default function AttendanceTable() {
                     <tr>
                       <th>#</th>
                       <th>Employee</th>
-                      <th>Shift</th>
-                      <th>Check In</th>
-                      <th>Check Out</th>
-                      <th>Work Time</th>
+                      <th className="text-center">Shift</th>
+                      <th className="text-center">Check In</th>
+                      <th className="text-center">Check Out</th>
+
                       <th className="text-center">Status</th>
                     </tr>
                   </thead>
@@ -364,19 +380,20 @@ export default function AttendanceTable() {
                                 cursor: isAdmin ? "pointer" : "default",
                                 color: isAdmin ? "#0ea5e9" : "inherit",
                                 fontWeight: 600,
-                              }}
-                            >
+                              }}>
                               {employeeName(l.user_id)}
                             </span>
                           </td>
 
-                          <td>{l.shift_name || "-"}</td>
+                          <td className="text-center">{l.shift_name || "-"}</td>
 
-                          <td>{formatDateTime(l.check_in)}</td>
+                          <td className="text-center">
+                            {formatDateTime(l.check_in)}
+                          </td>
 
-                          <td>{formatDateTime(l.check_out)}</td>
-
-                          <td>{formatMinutesDuration(l.work_minutes)}</td>
+                          <td className="text-center">
+                            {formatDateTime(l.check_out)}
+                          </td>
 
                           <td className="text-center">
                             <span
@@ -386,8 +403,7 @@ export default function AttendanceTable() {
                                   : l.check_in && !l.check_out
                                     ? "table-pill-success"
                                     : "table-pill-neutral"
-                              }`}
-                            >
+                              }`}>
                               {!l.check_in
                                 ? "Absent"
                                 : l.check_in && !l.check_out
@@ -411,8 +427,7 @@ export default function AttendanceTable() {
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}>
         <Alert severity={snackbar.severity} variant="filled">
           {snackbar.message}
         </Alert>

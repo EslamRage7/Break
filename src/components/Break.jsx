@@ -9,7 +9,10 @@ const formatTime = (minutesLeft, secondsLeft) => {
   ).padStart(2, "0")}`;
 };
 
-export default function Break({ attendanceCompletedToday = false }) {
+export default function Break({
+  attendanceCompletedToday = false,
+  refreshKey = 0,
+}) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
 
@@ -32,11 +35,26 @@ export default function Break({ attendanceCompletedToday = false }) {
       timeZone: "Africa/Cairo",
     }).format(new Date());
 
+  const isWithinToday = (value) => {
+    if (!value) return false;
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+
+    const sessionDay = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+    }).format(date);
+
+    return sessionDay === getTodayKey();
+  };
+
   const totalDurationSeconds = BREAK_LIMIT * 60;
-  const progressPercent = Math.min(
-    100,
-    Math.max(0, ((minutes * 60 + seconds) / totalDurationSeconds) * 100),
-  );
+  const progressPercent = isFinished
+    ? 100
+    : Math.min(
+        100,
+        Math.max(0, ((minutes * 60 + seconds) / totalDurationSeconds) * 100),
+      );
   useEffect(() => {
     const loadUser = async () => {
       const {
@@ -56,14 +74,17 @@ export default function Break({ attendanceCompletedToday = false }) {
       .from("break_sessions")
       .select("*")
       .eq("user_id", userId)
-      .gte("start_time", `${today}T00:00:00`)
-      .lt("start_time", `${today}T23:59:59`);
+      .order("start_time", { ascending: false });
 
+    const todaysSessions = (data || []).filter((item) =>
+      isWithinToday(item.start_time),
+    );
+    console.log(JSON.stringify(todaysSessions, null, 2));
     let totalSeconds = 0;
 
-    data?.forEach((item) => {
+    todaysSessions.forEach((item) => {
       if (item.status === "completed") {
-        totalSeconds += item.duration_seconds;
+        totalSeconds += item.used_seconds || 0;
         return;
       }
 
@@ -80,7 +101,10 @@ export default function Break({ attendanceCompletedToday = false }) {
     });
 
     const totalMinutes = Math.floor(totalSeconds / 60);
-
+    console.log({
+      totalSeconds,
+      totalMinutes: Math.floor(totalSeconds / 60),
+    });
     const reachedLimit = totalMinutes >= BREAK_LIMIT;
 
     setUsedToday(totalMinutes);
@@ -113,13 +137,13 @@ export default function Break({ attendanceCompletedToday = false }) {
       .from("break_sessions")
       .select("*")
       .eq("user_id", userId)
-      .gte("start_time", `${today}T00:00:00`)
-      .lt("start_time", `${today}T23:59:59`)
-      .order("start_time", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("start_time", { ascending: false });
 
-    return data;
+    const todaysSessions = (data || []).filter((item) =>
+      isWithinToday(item.start_time),
+    );
+
+    return todaysSessions[0] || null;
   }, []);
   useEffect(() => {
     if (!user) return;
@@ -190,15 +214,54 @@ export default function Break({ attendanceCompletedToday = false }) {
     setRemainingBreak(BREAK_LIMIT);
   }, []);
 
-  const completeBreakFlow = useCallback(async () => {
-    setRunning(false);
-    setIsFinished(true);
-    setIsDisabled(true);
-    setMinutes(0);
-    setSeconds(0);
-    setRemainingBreak(0);
-    setSession(null);
-  }, []);
+  const finalizeBreakSession = useCallback(
+    async (
+      sessionId,
+      endTime = new Date().toISOString(),
+      usedSecondsValue = null,
+    ) => {
+      if (!sessionId) return;
+
+      const resolvedUsedSeconds = Math.max(
+        0,
+        Math.min(2700, usedSecondsValue ?? 2700 - (minutes * 60 + seconds)),
+      );
+
+      try {
+        await supabase
+          .from("break_sessions")
+          .update({
+            status: "completed",
+            used_seconds: resolvedUsedSeconds,
+            used_minutes: Math.floor(resolvedUsedSeconds / 60),
+            end_time: endTime,
+          })
+          .eq("id", sessionId);
+      } catch (err) {
+        console.error("Failed to finalize break session", err);
+      }
+    },
+    [minutes, seconds],
+  );
+
+  const completeBreakFlow = useCallback(
+    async (sessionId = null) => {
+      const resolvedSessionId = sessionId ?? session?.id;
+
+      setRunning(false);
+      setIsFinished(true);
+      setIsDisabled(true);
+      setMinutes(0);
+      setSeconds(0);
+      setRemainingBreak(0);
+      setSession(null);
+
+      if (resolvedSessionId) {
+        await finalizeBreakSession(resolvedSessionId);
+      }
+    },
+    [finalizeBreakSession, session?.id],
+  );
 
   const startBreak = async (force = false) => {
     if (!user) return;
@@ -241,7 +304,7 @@ export default function Break({ attendanceCompletedToday = false }) {
     setMinutes(45);
     setSeconds(0);
     setRunning(true);
-
+    console.log("New Break Session:", data);
     await loadTodayUsage(user.id);
   };
 
@@ -349,18 +412,7 @@ export default function Break({ attendanceCompletedToday = false }) {
     if (remaining <= 0 && running && session.status !== "completed") {
       const finalize = async () => {
         clearInterval(intervalRef.current);
-        await completeBreakFlow();
-
-        await supabase
-          .from("break_sessions")
-          .update({
-            status: "completed",
-            used_seconds: 2700,
-            used_minutes: 45,
-            end_time: new Date().toISOString(),
-          })
-          .eq("id", session.id);
-
+        await completeBreakFlow(session.id);
         await loadTodayUsage(user.id);
       };
 
@@ -369,7 +421,10 @@ export default function Break({ attendanceCompletedToday = false }) {
   }, [minutes, seconds, running, session, user, loadTodayUsage]);
 
   const finishBreak = async () => {
-    await completeBreakFlow();
+    await completeBreakFlow(session?.id);
+    if (user?.id) {
+      await loadTodayUsage(user.id);
+    }
   };
 
   useEffect(() => {
@@ -397,16 +452,20 @@ export default function Break({ attendanceCompletedToday = false }) {
   }, [user?.id, loadTodayUsage]);
 
   useEffect(() => {
-    if (!attendanceCompletedToday) return;
+    if (!user?.id) return;
 
     clearInterval(intervalRef.current);
     setRunning(false);
     setIsFinished(false);
     setSession(null);
-    setMinutes(0);
+    setMinutes(BREAK_LIMIT);
     setSeconds(0);
-    setRemainingBreak(0);
-  }, [attendanceCompletedToday]);
+    setUsedToday(0);
+    setRemainingBreak(BREAK_LIMIT);
+    setIsDisabled(false);
+
+    void loadTodayUsage(user.id);
+  }, [attendanceCompletedToday, refreshKey, user?.id, loadTodayUsage]);
 
   const shouldHideBreak = attendanceCompletedToday || (!user && !session);
 
@@ -440,8 +499,7 @@ export default function Break({ attendanceCompletedToday = false }) {
 
       <div
         className="timer-progress"
-        aria-label={`${Math.round(progressPercent)}% remaining`}
-      >
+        aria-label={`${Math.round(progressPercent)}% remaining`}>
         <span style={{ width: `${progressPercent}%` }}></span>
       </div>
 
@@ -469,15 +527,14 @@ export default function Break({ attendanceCompletedToday = false }) {
           <button
             className="timer-button primary"
             onClick={startBreak}
-            disabled={isDisabled}
-          >
+            disabled={isDisabled}>
             {isDisabled ? "Completed" : "Start"}
           </button>
         )}
 
         {isFinished && (
-          <button className="timer-button primary" onClick={finishBreak}>
-            Finish
+          <button className="timer-button primary finished" disabled>
+            Finished
           </button>
         )}
 

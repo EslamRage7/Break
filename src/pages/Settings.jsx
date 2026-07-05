@@ -198,7 +198,7 @@ export default function Settings() {
       <section className="dashboard-content ">
         <div className="settings-panel">
           <div className="settings-header">
-            <h1>Settings</h1>
+            <h1>Profile</h1>
           </div>
 
           <div className="settings-form">

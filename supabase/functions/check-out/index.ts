@@ -98,7 +98,40 @@ Deno.serve(async (req) => {
       .single();
 
     if (updateError) throw updateError;
+    const { data: openBreak, error: breakError } = await supabase
+      .from("break_sessions")
+      .select("*")
+      .eq("user_id", user_id)
+      .in("status", ["active", "paused"])
+      .order("start_time", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
+    if (breakError) {
+      console.error("Failed to fetch break session", breakError);
+    }
+
+    if (openBreak) {
+      const usedSeconds = Math.floor(
+        (checkOut.getTime() - new Date(openBreak.start_time).getTime()) / 1000,
+      );
+
+      const { error: closeBreakError } = await supabase
+        .from("break_sessions")
+        .update({
+          end_time: checkOut.toISOString(),
+          used_seconds: usedSeconds,
+          used_minutes: Math.floor(usedSeconds / 60),
+          status: "completed",
+          is_paused: false,
+          paused_at: null,
+        })
+        .eq("id", openBreak.id);
+
+      if (closeBreakError) {
+        console.error("Failed to close break session", closeBreakError);
+      }
+    }
     return new Response(
       JSON.stringify({
         success: true,

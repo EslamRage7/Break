@@ -60,13 +60,29 @@ export default function EmployeeAttendancePage() {
   });
 
   const employeeName = useMemo(() => {
-    if (!employee) return userId;
+    if (!employee) return userId || "Employee";
     return (
       `${employee.first_name || ""} ${employee.last_name || ""}`.trim() ||
       employee.email ||
-      userId
+      userId ||
+      "Employee"
     );
   }, [employee, userId]);
+
+  const pageTitle = useMemo(() => {
+    if (!userId) return "Attendance History";
+    if (employee?.first_name || employee?.last_name || employee?.email) {
+      return `${employeeName} Attendance History`;
+    }
+    return "Employee Attendance History";
+  }, [employee, employeeName, userId]);
+
+  useEffect(() => {
+    document.title = pageTitle;
+    return () => {
+      document.title = "Break";
+    };
+  }, [pageTitle]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -140,7 +156,7 @@ export default function EmployeeAttendancePage() {
       <section className="dashboard-content">
         <div className="settings-panel admin-panel">
           <div className="settings-header">
-            <h1>Employee Attendance History</h1>
+            <h1>{pageTitle}</h1>
           </div>
           <br />
           <button

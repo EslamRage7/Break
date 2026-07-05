@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
@@ -15,8 +15,38 @@ import Preloader from "./components/Preloader";
 import "./App.css";
 
 function App() {
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [isPreloaderExiting, setIsPreloaderExiting] = useState(false);
+
+  useEffect(() => {
+    const path = location.pathname.toLowerCase();
+    let title = "Mobile 2000";
+
+    if (path === "/" || path === "/login") {
+      title = "Login | Mobile 2000";
+    } else if (path === "/register" || path === "/verify-email") {
+      title = "Register | Mobile 2000";
+    } else if (path === "/home") {
+      title = "Home | Mobile 2000";
+    } else if (path === "/settings") {
+      title = "Settings | Mobile 2000";
+    } else if (path === "/attendance") {
+      title = "Attendance | Mobile 2000";
+    } else if (path === "/breaks") {
+      title = "Breaks | Mobile 2000";
+    } else if (path === "/table") {
+      title = "Admin Table | Mobile 2000";
+    } else if (path === "/break") {
+      title = "Break | Mobile 2000";
+    } else if (path.startsWith("/employee-attendance/")) {
+      title = "Employee Attendance | Mobile 2000";
+    } else if (path.startsWith("/employee-breaks/")) {
+      title = "Employee Breaks | Mobile 2000";
+    }
+
+    document.title = title;
+  }, [location.pathname]);
 
   useEffect(() => {
     const exitTimer = setTimeout(() => {

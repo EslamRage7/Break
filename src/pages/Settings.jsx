@@ -13,6 +13,8 @@ export default function Settings() {
   const [lastName, setLastName] = useState("");
   const [department, setDepartment] = useState("");
   const [gender, setGender] = useState("");
+  const [shift, setShift] = useState("");
+  const [shifts, setShifts] = useState([]);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -71,6 +73,27 @@ export default function Settings() {
           .maybeSingle();
 
         if (error) throw error;
+
+        const [
+          { data: shiftRows, error: shiftError },
+          { data: employeeShiftRow, error: employeeShiftError },
+        ] = await Promise.all([
+          supabase
+            .from("shifts")
+            .select("id,shift_name")
+            .order("shift_name", { ascending: true }),
+          supabase
+            .from("employee_shifts")
+            .select("shift_id")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]);
+
+        if (shiftError) throw shiftError;
+        if (employeeShiftError) throw employeeShiftError;
+
+        setShifts(shiftRows || []);
+        setShift(employeeShiftRow?.shift_id || "");
 
         const genderString =
           data?.gender === true
@@ -232,6 +255,20 @@ export default function Settings() {
                 <MenuItem value="Development">Development</MenuItem>
                 <MenuItem value="Packaging">Packaging</MenuItem>
               </TextField>
+            </div>
+
+            <div className="form-row">
+              <TextField
+                size="small"
+                label="Shift"
+                value={
+                  shifts.find((item) => item.id === shift)?.shift_name ||
+                  "No Shift Assigned"
+                }
+                fullWidth
+                disabled
+                sx={textFieldStyle}
+              />
             </div>
 
             <TextField

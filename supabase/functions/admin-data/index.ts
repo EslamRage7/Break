@@ -81,9 +81,6 @@ Deno.serve(async (req) => {
     let employees = [];
     let breaks = [];
 
-    let employees = [];
-    let breaks = [];
-
     if (currentEmployee.role === "admin") {
       const { data, error } = await supabase
         .from("employees")

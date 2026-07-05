@@ -273,6 +273,16 @@ function Home() {
                 sx={{ fontWeight: 800, color: "#0f172a" }}>
                 Welcome{displayName ? `, ${displayName}` : ""}
               </Typography>
+
+              <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
+                {!hasShift && role !== "admin"
+                  ? "Your dashboard is ready. Contact your administrator to get assigned to a shift."
+                  : attendanceCompletedToday
+                    ? "Your workday has been completed successfully. We look forward to seeing you again tomorrow."
+                    : isCheckedIn
+                      ? "You're checked in for today. Manage your workday and break sessions from here."
+                      : "Start your workday by checking in, then manage your breaks throughout the day."}
+              </Typography>
             </div>
             {showCompletedMessage ? (
               <Grow

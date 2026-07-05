@@ -160,7 +160,12 @@ export default function EmployeeBreaksPage() {
         <div className="settings-panel admin-panel">
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
-              Previous Breaks
+              Employee Break History
+            </Typography>
+
+            <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
+              View the complete break history for the selected employee,
+              including duration and status.
             </Typography>
           </div>
 
@@ -205,11 +210,11 @@ export default function EmployeeBreaksPage() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Start Time</th>
-                    <th>End Time</th>
-                    <th>Duration</th>
-                    <th>Used</th>
-                    <th>Status</th>
+                    <th className="text-center">Start Time</th>
+                    <th className="text-center">End Time</th>
+                    <th className="text-center">Duration</th>
+                    <th className="text-center">Used</th>
+                    <th className="text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -223,13 +228,21 @@ export default function EmployeeBreaksPage() {
                         <td>
                           <strong>{index + 1}</strong>
                         </td>
-                        <td>{formatDateTime(item.start_time)}</td>
-                        <td>{formatDateTime(item.end_time)}</td>
-                        <td>{formatDuration(item.duration_minutes)}</td>
-                        <td>{formatDuration(item.used_minutes)}</td>
-                        <td>
+                        <td className="text-center">
+                          {formatDateTime(item.start_time)}
+                        </td>
+                        <td className="text-center">
+                          {formatDateTime(item.end_time)}
+                        </td>
+                        <td className="text-center">
+                          {formatDuration(item.duration_minutes)}
+                        </td>
+                        <td className="text-center">
+                          {formatDuration(item.used_minutes)}
+                        </td>
+                        <td className="text-center">
                           <span
-                            className={`table-pill ${
+                            className={`table-pill  ${
                               item.is_paused
                                 ? "table-pill-neutral"
                                 : item.status === "active"

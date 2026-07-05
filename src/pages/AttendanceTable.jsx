@@ -256,7 +256,13 @@ export default function AttendanceTable() {
         <div className="settings-panel admin-panel">
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
-              {isAdmin ? "Attendance Logs" : "My Attendance"}
+              {!isAdmin ? "Attendance Logs" : "My Attendance"}
+            </Typography>
+
+            <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
+              {isAdmin
+                ? "View and monitor attendance records for all employees."
+                : "View your attendance history and daily check-in records."}
             </Typography>
           </div>
 
@@ -349,7 +355,7 @@ export default function AttendanceTable() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Employee</th>
+                      <th>Name</th>
                       <th className="text-center">Shift</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>

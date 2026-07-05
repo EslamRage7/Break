@@ -66,6 +66,7 @@ export default function AdminTable() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [employees, setEmployees] = useState([]);
+  const [isTeamLeader, setIsTeamLeader] = useState(false);
   const [breaks, setBreaks] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [employeeShifts, setEmployeeShifts] = useState({});
@@ -200,11 +201,16 @@ export default function AdminTable() {
 
         if (currentEmployeeError) throw currentEmployeeError;
 
-        if (currentEmployee?.role !== "admin") {
+        const isAdminUser = currentEmployee?.role === "admin";
+        const isLeaderUser = currentEmployee?.role === "team_leader";
+
+        if (!isAdminUser && !isLeaderUser) {
           setIsAdmin(false);
           return;
         }
 
+        setIsAdmin(isAdminUser);
+        setIsTeamLeader(isLeaderUser);
         setIsAdmin(true);
 
         const { data: adminData, error: adminError } =
@@ -326,7 +332,11 @@ export default function AdminTable() {
         <div className="settings-panel admin-panel">
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
-              Employees Table
+              Employee Management
+            </Typography>
+
+            <Typography variant="body2" sx={{ color: "#64748b", mt: 0.5 }}>
+              Manage employee roles, shifts, and department assignments.
             </Typography>
           </div>
 
@@ -426,6 +436,7 @@ export default function AdminTable() {
               <MenuItem value="all">All</MenuItem>
               <MenuItem value="employee">Employee</MenuItem>
               <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="team_leader">Team Leader</MenuItem>
             </TextField>
 
             <Button
@@ -506,6 +517,7 @@ export default function AdminTable() {
                             }>
                             <MenuItem value="employee">Employee</MenuItem>
                             <MenuItem value="admin">Admin</MenuItem>
+                            <MenuItem value="team_leader">Team Leader</MenuItem>
                           </TextField>
                         </td>
                       </tr>

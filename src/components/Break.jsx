@@ -15,7 +15,6 @@ export default function Break({
 }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
-
   const [minutes, setMinutes] = useState(45);
   const [seconds, setSeconds] = useState(0);
 
@@ -49,8 +48,10 @@ export default function Break({
   };
 
   const totalDurationSeconds = BREAK_LIMIT * 60;
-  const progressPercent = isFinished
-    ? 100
+  const showFinishedState =
+    isFinished || (!running && minutes === 0 && seconds === 0 && !session);
+  const progressPercent = showFinishedState
+    ? 0
     : Math.min(
         100,
         Math.max(0, ((minutes * 60 + seconds) / totalDurationSeconds) * 100),
@@ -145,6 +146,30 @@ export default function Break({
 
     return todaysSessions[0] || null;
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const interval = setInterval(async () => {
+      const last = await loadLastSession(user.id);
+
+      if (!last || last.status === "completed") return;
+
+      const elapsed = last.is_paused
+        ? last.used_seconds
+        : Math.floor((Date.now() - new Date(last.start_time).getTime()) / 1000);
+
+      const remaining = Math.max(last.duration_seconds - elapsed, 0);
+
+      setMinutes(Math.floor(remaining / 60));
+      setSeconds(remaining % 60);
+
+      setSession(last);
+      setRunning(!last.is_paused);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user?.id, loadLastSession]);
   useEffect(() => {
     if (!user) return;
 
@@ -166,13 +191,15 @@ export default function Break({
 
         setSession(null);
         setRunning(false);
-        setIsFinished(false);
-        setIsDisabled(false);
-        setMinutes(BREAK_LIMIT);
+        setIsFinished(true);
+        setIsDisabled(true);
+
+        setMinutes(0);
         setSeconds(0);
+        setRemainingBreak(0);
+
         return;
       }
-
       const elapsed = last.is_paused
         ? last.used_seconds
         : Math.floor((Date.now() - new Date(last.start_time).getTime()) / 1000);
@@ -372,39 +399,6 @@ export default function Break({
   };
 
   useEffect(() => {
-    if (!running || !session) return;
-
-    intervalRef.current = setInterval(async () => {
-      const remaining = minutes * 60 + seconds;
-
-      if (remaining <= 0) return;
-
-      const newRemaining = remaining - 1;
-
-      setMinutes(Math.floor(newRemaining / 60));
-      setSeconds(newRemaining % 60);
-
-      syncCounterRef.current++;
-
-      if (syncCounterRef.current >= 10) {
-        syncCounterRef.current = 0;
-
-        const usedSeconds = 2700 - newRemaining;
-
-        await supabase
-          .from("break_sessions")
-          .update({
-            used_seconds: usedSeconds,
-            used_minutes: Math.floor(usedSeconds / 60),
-          })
-          .eq("id", session.id);
-      }
-    }, 1000);
-
-    return () => clearInterval(intervalRef.current);
-  }, [running, session, minutes, seconds]);
-
-  useEffect(() => {
     if (!session) return;
 
     const remaining = minutes * 60 + seconds;
@@ -454,15 +448,7 @@ export default function Break({
   useEffect(() => {
     if (!user?.id) return;
 
-    clearInterval(intervalRef.current);
-    setRunning(false);
-    setIsFinished(false);
-    setSession(null);
-    setMinutes(BREAK_LIMIT);
-    setSeconds(0);
-    setUsedToday(0);
-    setRemainingBreak(BREAK_LIMIT);
-    setIsDisabled(false);
+    if (attendanceCompletedToday) return;
 
     void loadTodayUsage(user.id);
   }, [attendanceCompletedToday, refreshKey, user?.id, loadTodayUsage]);
@@ -478,7 +464,15 @@ export default function Break({
       <div className="break-timer-header">
         <div>
           <h2>Break Timer</h2>
-          <p>{running ? "Break is running" : "Enjoy Your Break"}</p>
+          <p>
+            {running
+              ? "Break is running"
+              : isFinished
+                ? "Your break is over. Hope you're feeling refreshed!"
+                : isPaused
+                  ? "Break paused"
+                  : "Enjoy Your Break"}
+          </p>
         </div>
 
         <span className={`timer-status ${running ? "active" : ""}`}>
@@ -500,7 +494,11 @@ export default function Break({
       <div
         className="timer-progress"
         aria-label={`${Math.round(progressPercent)}% remaining`}>
-        <span style={{ width: `${progressPercent}%` }}></span>
+        <span
+          style={{
+            width: showFinishedState ? "0%" : `${progressPercent}%`,
+          }}
+        />
       </div>
 
       <div className="timer-stats">
@@ -523,35 +521,38 @@ export default function Break({
       <div className="prayer-reminder">Don't forget your prayer 🙏🏻</div>
 
       <div className="timer-actions">
-        {!isFinished && !session && (
-          <button
-            className="timer-button primary"
-            onClick={startBreak}
-            disabled={isDisabled}>
-            {isDisabled ? "Completed" : "Start"}
-          </button>
-        )}
+        {showFinishedState ? (
+          <div className="timer-finished">Finished</div>
+        ) : (
+          <>
+            {!session && !isFinished && (
+              <>
+                {isDisabled ? (
+                  <div className="timer-finished">
+                    Daily break limit reached today
+                  </div>
+                ) : (
+                  <button className="timer-button primary" onClick={startBreak}>
+                    Start
+                  </button>
+                )}
+              </>
+            )}
 
-        {isFinished && (
-          <button className="timer-button primary finished" disabled>
-            Finished
-          </button>
-        )}
+            {session?.is_paused && (
+              <button className="timer-button primary" onClick={resumeBreak}>
+                Resume
+              </button>
+            )}
 
-        {session?.is_paused && !isFinished && (
-          <button className="timer-button primary" onClick={resumeBreak}>
-            Resume
-          </button>
-        )}
-
-        {running && !isFinished && (
-          <button className="timer-button secondary" onClick={pauseBreak}>
-            Pause
-          </button>
+            {running && (
+              <button className="timer-button secondary" onClick={pauseBreak}>
+                Pause
+              </button>
+            )}
+          </>
         )}
       </div>
-
-      {isFinished && <div className="timer-finished">Finished</div>}
     </div>
   );
 }

@@ -16,6 +16,9 @@ import Swal from "sweetalert2";
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const [role, setRole] = useState("employee");
+  const isAdmin = role === "admin";
+  const isTeamLeader = role === "team_leader";
+  const canManageEmployees = isAdmin || isTeamLeader;
   const [authUser, setAuthUser] = useState(null);
   const navigate = useNavigate();
 
@@ -236,7 +239,7 @@ export default function Sidebar() {
             <span>Profile</span>
           </NavLink>
 
-          {role === "admin" && (
+          {canManageEmployees && (
             <>
               <NavLink
                 to="/table"
@@ -253,10 +256,10 @@ export default function Sidebar() {
             className={navLinkClass}
             onClick={closeSidebar}>
             <PeopleRoundedIcon fontSize="small" />
-            <span>{role === "admin" ? "Attendance" : "My Attendance"}</span>
+            <span>{isAdmin ? "Attendance Logs" : "My Attendance"}</span>
           </NavLink>
 
-          {role === "admin" && (
+          {canManageEmployees && (
             <>
               <NavLink
                 to="/breaks"

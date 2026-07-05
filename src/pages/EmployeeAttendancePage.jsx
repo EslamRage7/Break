@@ -5,6 +5,7 @@ import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import { supabase } from "../supabaseClient";
 import Typography from "@mui/material/Typography";
+
 const formatDateTime = (value) => {
   if (!value) return "-";
 
@@ -158,6 +159,11 @@ export default function EmployeeAttendancePage() {
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
               {pageTitle}
+            </Typography>
+
+            <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
+              Review the selected employee's attendance records, check-in and
+              check-out times, and work duration.
             </Typography>
           </div>
           <br />

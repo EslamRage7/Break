@@ -135,13 +135,16 @@ export default function BreaksTable() {
         const { data: currentEmployee, error: currentEmployeeError } =
           await supabase
             .from("employees")
-            .select("role")
+            .select("role, team_id")
             .eq("user_id", user.id)
             .maybeSingle();
 
         if (currentEmployeeError) throw currentEmployeeError;
 
-        if (currentEmployee?.role !== "admin") {
+        if (
+          currentEmployee?.role !== "admin" &&
+          currentEmployee?.role !== "team_leader"
+        ) {
           setIsAdmin(false);
           return;
         }
@@ -153,19 +156,19 @@ export default function BreaksTable() {
 
         if (adminError) throw adminError;
 
-        const employeeRows = adminData?.employees || [];
-        const breakRows = adminData?.breaks || [];
+        let employeeRows = adminData?.employees || [];
+        let breakRows = adminData?.breaks || [];
 
-        setEmployees(employeeRows);
-        const latestBreaks = {};
+        // Team Leader => يشوف فريقه فقط
+        if (currentEmployee?.role === "team_leader") {
+          employeeRows = employeeRows.filter(
+            (e) => e.team_id === currentEmployee.team_id,
+          );
 
-        breakRows.forEach((item) => {
-          if (!latestBreaks[item.user_id]) {
-            latestBreaks[item.user_id] = item;
-          }
-        });
+          const teamIds = employeeRows.map((e) => e.user_id);
 
-        setBreaks(Object.values(latestBreaks));
+          breakRows = breakRows.filter((b) => teamIds.includes(b.user_id));
+        }
       } catch (err) {
         console.error(err);
         showMessage(err.message || "Failed to load breaks table", "error");
@@ -241,7 +244,12 @@ export default function BreaksTable() {
         <div className="settings-panel admin-panel">
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
-              All Breaks
+              Break Management
+            </Typography>
+
+            <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
+              View all employee breaks, monitor active sessions, and filter
+              break records.
             </Typography>
           </div>
 
@@ -343,13 +351,13 @@ export default function BreaksTable() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Employee</th>
-                      <th>Start Time</th>
-                      <th>End Time</th>
-                      <th>Duration</th>
-                      <th>Used</th>
-                      <th>Status</th>
-                      <th>Paused</th>
+                      <th>Name</th>
+                      <th className="text-center">Start Time</th>
+                      <th className="text-center">End Time</th>
+                      <th className="text-center">Duration</th>
+                      <th className="text-center">Used</th>
+                      <th className="text-center">Status</th>
+                      <th className="text-center">Paused</th>
                     </tr>
                   </thead>
 
@@ -386,11 +394,19 @@ export default function BreaksTable() {
                               {employeeNamesById[item.user_id] || item.user_id}
                             </button>
                           </td>
-                          <td>{formatDateTime(item.start_time)}</td>
-                          <td>{formatDateTime(item.end_time)}</td>
-                          <td>{formatDuration(item.duration_minutes)}</td>
-                          <td>{formatDuration(item.used_minutes)}</td>
-                          <td>
+                          <td className="text-center">
+                            {formatDateTime(item.start_time)}
+                          </td>
+                          <td className="text-center">
+                            {formatDateTime(item.end_time)}
+                          </td>
+                          <td className="text-center">
+                            {formatDuration(item.duration_minutes)}
+                          </td>
+                          <td className="text-center">
+                            {formatDuration(item.used_minutes)}
+                          </td>
+                          <td className="text-center">
                             <span
                               className={`table-pill ${
                                 item.is_paused
@@ -403,7 +419,7 @@ export default function BreaksTable() {
                               {getStatusLabel(item)}
                             </span>
                           </td>
-                          <td className="paused-cell">
+                          <td className="paused-cell text-center">
                             <span
                               className={`table-pill ${
                                 item.is_paused

@@ -37,25 +37,119 @@ Deno.serve(async (req) => {
     const supabase = createClient(PROJECT_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    const authHeader = req.headers.get("Authorization");
 
-    const [
-      { data: employees, error: employeesError },
-      { data: breaks, error: breaksError },
-    ] = await Promise.all([
-      supabase
+    const userClient = createClient(
+      PROJECT_URL,
+      Deno.env.get("SUPABASE_ANON_KEY"),
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      },
+    );
+
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Unauthorized",
+        }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+    const { data: currentEmployee, error: currentEmployeeError } =
+      await supabase
         .from("employees")
-        .select("user_id,email,first_name,last_name,department,role")
-        .order("first_name", { ascending: true }),
-      supabase
+        .select("role, team_id")
+        .eq("user_id", user.id)
+        .single();
+
+    if (currentEmployeeError) throw currentEmployeeError;
+    let employees = [];
+    let breaks = [];
+
+    let employees = [];
+    let breaks = [];
+
+    if (currentEmployee.role === "admin") {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("user_id,email,first_name,last_name,department,role,team_id")
+        .order("first_name");
+
+      if (error) throw error;
+
+      employees = data || [];
+    } else if (currentEmployee.role === "team_leader") {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("user_id,email,first_name,last_name,department,role,team_id")
+        .eq("team_id", currentEmployee.team_id)
+        .order("first_name");
+
+      if (error) throw error;
+
+      employees = data || [];
+    } else {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Forbidden",
+        }),
+        {
+          status: 403,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
+    const ids = employees.map((e) => e.user_id);
+
+    if (ids.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          employees: [],
+          breaks: [],
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
+    if (ids.length) {
+      const { data, error } = await supabase
         .from("break_sessions")
         .select(
           "id,user_id,start_time,end_time,duration_minutes,duration_seconds,used_minutes,used_seconds,status,is_paused,paused_at",
         )
-        .order("start_time", { ascending: false }),
-    ]);
+        .in("user_id", ids)
+        .order("start_time", { ascending: false });
 
-    if (employeesError) throw employeesError;
-    if (breaksError) throw breaksError;
+      if (error) throw error;
+
+      breaks = data;
+    }
 
     // Keep only the latest break per user (breaks are ordered by start_time desc)
     const latestByUser = [];

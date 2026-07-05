@@ -202,6 +202,11 @@ export default function Settings() {
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
               Profile Settings
             </Typography>
+
+            <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
+              Update your personal information, change your password, and view
+              your assigned shift.
+            </Typography>
           </div>
 
           <div className="settings-form">

@@ -526,6 +526,7 @@ export default function AdminTable() {
                             size="small"
                             select
                             value={employee.role || "employee"}
+                            sx={{ minWidth: 180 }}
                             disabled={
                               userRole === "team_leader" ||
                               updatingUserId === employee.user_id

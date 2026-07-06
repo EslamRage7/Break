@@ -69,6 +69,7 @@ export default function AttendanceTable() {
   const [nameQuery, setNameQuery] = useState("");
   const [departmentQuery, setDepartmentQuery] = useState("");
   const [roleQuery, setRoleQuery] = useState("");
+  const [dateQuery, setDateQuery] = useState("");
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -108,6 +109,7 @@ export default function AttendanceTable() {
           setNameQuery("");
           setDepartmentQuery("");
           setRoleQuery("");
+          setDateQuery("");
         }
 
         const { data: employeeRows, error: employeeError } = await supabase
@@ -239,9 +241,18 @@ export default function AttendanceTable() {
         return false;
       }
 
+      if (dateQuery) {
+        const logDate = new Date(log.attendance_date)
+          .toISOString()
+          .split("T")[0];
+        if (logDate !== dateQuery) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [logs, employeeLookup, nameQuery, departmentQuery, roleQuery]);
+  }, [logs, employeeLookup, nameQuery, departmentQuery, roleQuery, dateQuery]);
 
   const employeeOptions = useMemo(() => {
     return (employees || [])
@@ -273,10 +284,24 @@ export default function AttendanceTable() {
     ).sort((a, b) => a.localeCompare(b));
   }, [employees]);
 
+  const availableDates = useMemo(() => {
+    const set = new Set();
+    (logs || []).forEach((log) => {
+      if (log.attendance_date) {
+        const dateStr = new Date(log.attendance_date)
+          .toISOString()
+          .split("T")[0];
+        set.add(dateStr);
+      }
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [logs]);
+
   const handleClearFilters = () => {
     setNameQuery("");
     setDepartmentQuery("");
     setRoleQuery("");
+    setDateQuery("");
   };
 
   console.log(filteredLogs);
@@ -366,6 +391,25 @@ export default function AttendanceTable() {
                       {roles.map((role) => (
                         <MenuItem value={role} key={role}>
                           {role}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl size="small" style={{ minWidth: 180 }}>
+                    <InputLabel id="date-filter-label">Date</InputLabel>
+                    <Select
+                      labelId="date-filter-label"
+                      label="Date"
+                      value={dateQuery}
+                      onChange={(event) => setDateQuery(event.target.value)}>
+                      <MenuItem value="">All dates</MenuItem>
+                      {availableDates.map((d) => (
+                        <MenuItem value={d} key={d}>
+                          {new Intl.DateTimeFormat("en", {
+                            dateStyle: "medium",
+                            timeZone: "Africa/Cairo",
+                          }).format(new Date(d))}
                         </MenuItem>
                       ))}
                     </Select>

@@ -64,10 +64,12 @@ export default function AttendanceTable() {
   const [logs, setLogs] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const [canManageAttendance, setCanManageAttendance] = useState(false);
   const [nameQuery, setNameQuery] = useState("");
   const [departmentQuery, setDepartmentQuery] = useState("");
   const [roleQuery, setRoleQuery] = useState("");
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -89,16 +91,20 @@ export default function AttendanceTable() {
         const { data: currentEmployee, error: currentEmployeeError } =
           await supabase
             .from("employees")
-            .select("role")
+            .select("role, team_id")
             .eq("user_id", user.id)
             .maybeSingle();
 
         if (currentEmployeeError) throw currentEmployeeError;
 
-        const adminView = currentEmployee?.role === "admin";
-        setIsAdmin(adminView);
+        setUserRole(currentEmployee?.role || "");
 
-        if (!adminView) {
+        const canManage =
+          currentEmployee?.role === "admin" ||
+          currentEmployee?.role === "team_leader";
+
+        setCanManageAttendance(canManage);
+        if (!canManage) {
           setNameQuery("");
           setDepartmentQuery("");
           setRoleQuery("");
@@ -106,31 +112,58 @@ export default function AttendanceTable() {
 
         const { data: employeeRows, error: employeeError } = await supabase
           .from("employees")
-          .select("user_id,email,first_name,last_name,department,role")
+          .select("user_id,email,first_name,last_name,department,role,team_id")
           .order("first_name", { ascending: true });
 
         if (employeeError) throw employeeError;
-        setEmployees(employeeRows || []);
+
+        // Filter employees based on role
+        let filteredEmployees = employeeRows || [];
+        if (currentEmployee?.role === "team_leader") {
+          filteredEmployees = filteredEmployees.filter(
+            (emp) => emp.team_id === currentEmployee.team_id,
+          );
+        }
+
+        setEmployees(filteredEmployees);
 
         let logsData = [];
 
-        if (adminView) {
-          const { data, error } = await supabase.rpc("get_latest_attendance");
+        if (canManage) {
+          let attendanceQuery = supabase
+            .from("attendance")
+            .select(
+              `
+      id,
+      user_id,
+      attendance_date,
+      shift_name,
+      shift_start,
+      shift_end,
+      early_arrival_minutes,
+      check_in,
+      check_out,
+      work_minutes,
+      late_minutes,
+      overtime_minutes,
+      status,
+      created_at
+    `,
+            )
+            .order("created_at", { ascending: false });
+
+          // For team leaders, filter by their team members
+          if (currentEmployee?.role === "team_leader") {
+            const teamMemberIds = filteredEmployees.map((emp) => emp.user_id);
+            attendanceQuery = attendanceQuery.in("user_id", teamMemberIds);
+          }
+
+          const { data, error } = await attendanceQuery;
 
           if (error) throw error;
 
           logsData = data;
-          if (logsData?.length) {
-            console.log("First Row:", logsData[0]);
-            console.log("check_in:", logsData[0].check_in);
-            console.log("check_out:", logsData[0].check_out);
-            console.log("shift_start:", logsData[0].shift_start);
-            console.log("shift_end:", logsData[0].shift_end);
-          }
-
           setLogs(logsData || []);
-
-          console.log("logsData:", logsData);
         } else {
           const { data, error } = await supabase
             .from("attendance")
@@ -147,7 +180,6 @@ export default function AttendanceTable() {
       check_out,
       work_minutes,
       late_minutes,
-   
       overtime_minutes,
       status,
       created_at
@@ -256,12 +288,16 @@ export default function AttendanceTable() {
         <div className="settings-panel admin-panel">
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
-              {isAdmin ? "Attendance Logs" : "My Attendance"}
+              {userRole === "admin"
+                ? "Attendance Logs"
+                : userRole === "team_leader"
+                  ? "Team Attendance"
+                  : "My Attendance"}
             </Typography>
 
             <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
-              {isAdmin
-                ? "View and monitor attendance records for all employees."
+              {canManageAttendance
+                ? "View and monitor attendance records."
                 : "View your attendance history and daily check-in records."}
             </Typography>
           </div>
@@ -275,7 +311,7 @@ export default function AttendanceTable() {
 
           {!loading && (
             <div>
-              {isAdmin && (
+              {canManageAttendance && (
                 <div
                   style={{
                     display: "flex",
@@ -367,7 +403,7 @@ export default function AttendanceTable() {
                     {filteredLogs.length === 0 ? (
                       <tr>
                         <td colSpan={12}>
-                          {isAdmin
+                          {canManageAttendance
                             ? "No attendance logs found."
                             : "No attendance logs found for your account."}
                         </td>
@@ -382,12 +418,16 @@ export default function AttendanceTable() {
                           <td>
                             <span
                               onClick={() =>
-                                isAdmin &&
+                                canManageAttendance &&
                                 navigate(`/employee-attendance/${l.user_id}`)
                               }
                               style={{
-                                cursor: isAdmin ? "pointer" : "default",
-                                color: isAdmin ? "#0ea5e9" : "inherit",
+                                cursor: canManageAttendance
+                                  ? "pointer"
+                                  : "default",
+                                color: canManageAttendance
+                                  ? "#0ea5e9"
+                                  : "inherit",
                                 fontWeight: 600,
                               }}>
                               {employeeName(l.user_id)}

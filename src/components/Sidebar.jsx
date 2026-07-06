@@ -246,7 +246,13 @@ export default function Sidebar() {
                 className={navLinkClass}
                 onClick={closeSidebar}>
                 <TableChartRoundedIcon fontSize="small" />
-                <span>Employees</span>
+                <span>
+                  {isAdmin
+                    ? "Employees"
+                    : isTeamLeader
+                      ? "Team Members"
+                      : "Employees"}
+                </span>
               </NavLink>
             </>
           )}
@@ -256,7 +262,7 @@ export default function Sidebar() {
             className={navLinkClass}
             onClick={closeSidebar}>
             <PeopleRoundedIcon fontSize="small" />
-            <span>{isAdmin ? "Attendance Logs" : "My Attendance"}</span>
+            <span>{canManageEmployees ? "Attendance " : "My Attendance"}</span>
           </NavLink>
 
           {canManageEmployees && (

@@ -131,13 +131,17 @@ export default function EmployeeAttendancePage() {
         const { data: currentEmployee, error: currentEmployeeError } =
           await supabase
             .from("employees")
-            .select("role")
+            .select("role, team_id")
             .eq("user_id", user.id)
             .maybeSingle();
 
         if (currentEmployeeError) throw currentEmployeeError;
 
-        if (currentEmployee?.role !== "admin") {
+        // Allow admin and team leader to view
+        if (
+          currentEmployee?.role !== "admin" &&
+          currentEmployee?.role !== "team_leader"
+        ) {
           setIsAdmin(false);
           return;
         }
@@ -146,11 +150,23 @@ export default function EmployeeAttendancePage() {
 
         const { data: employeeRows, error: employeeError } = await supabase
           .from("employees")
-          .select("user_id,email,first_name,last_name,department,role")
+          .select("user_id,email,first_name,last_name,department,role,team_id")
           .eq("user_id", userId)
           .maybeSingle();
 
         if (employeeError) throw employeeError;
+
+        // For team leaders, check if employee is in their team
+        if (currentEmployee?.role === "team_leader") {
+          if (
+            !employeeRows ||
+            employeeRows.team_id !== currentEmployee.team_id
+          ) {
+            setIsAdmin(false);
+            return;
+          }
+        }
+
         setEmployee(employeeRows);
 
         const { data: logsData, error: logsError } = await supabase

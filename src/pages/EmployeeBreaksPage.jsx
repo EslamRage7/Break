@@ -107,10 +107,15 @@ export default function EmployeeBreaksPage() {
 
         if (currentEmployeeError) throw currentEmployeeError;
 
-        if (currentEmployee?.role !== "admin") {
+        if (
+          currentEmployee?.role !== "admin" &&
+          currentEmployee?.role !== "team_leader"
+        ) {
           setIsAdmin(false);
           return;
         }
+
+        setIsAdmin(true);
 
         setIsAdmin(true);
 

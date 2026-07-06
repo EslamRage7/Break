@@ -209,8 +209,8 @@ export default function Settings() {
             </Typography>
           </div>
 
-          <div className="settings-form">
-            <div className="form-row">
+          <div className="settings-form" style={{ margin: "0 auto" }}>
+            <div className="form-row" style={{ marginBottom: "20px" }}>
               <TextField
                 size="small"
                 label="First Name"
@@ -220,7 +220,9 @@ export default function Settings() {
                 fullWidth
                 sx={textFieldStyle}
               />
+            </div>
 
+            <div className="form-row" style={{ marginBottom: "20px" }}>
               <TextField
                 size="small"
                 label="Last Name"
@@ -232,7 +234,7 @@ export default function Settings() {
               />
             </div>
 
-            <div className="form-row">
+            <div className="form-row" style={{ marginBottom: "20px" }}>
               <TextField
                 size="small"
                 select
@@ -246,26 +248,20 @@ export default function Settings() {
                 <MenuItem value="true">Male</MenuItem>
                 <MenuItem value="false">Female</MenuItem>
               </TextField>
-
-              <TextField
-                size="small"
-                select
-                label="Department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                disabled={loading || saving}
-                fullWidth
-                sx={textFieldStyle}>
-                <MenuItem value="">Select Department</MenuItem>
-                <MenuItem value="Call Center">Call Center</MenuItem>
-                <MenuItem value="Graphic Design">Graphic Design</MenuItem>
-                <MenuItem value="Data Entry">Data Entry</MenuItem>
-                <MenuItem value="Development">Development</MenuItem>
-                <MenuItem value="Packaging">Packaging</MenuItem>
-              </TextField>
             </div>
 
-            <div className="form-row">
+            <div className="form-row" style={{ marginBottom: "20px" }}>
+              <TextField
+                size="small"
+                label="Department"
+                value={department}
+                disabled
+                fullWidth
+                sx={textFieldStyle}
+              />
+            </div>
+
+            <div className="form-row" style={{ marginBottom: "20px" }}>
               <TextField
                 size="small"
                 label="Shift"
@@ -288,7 +284,7 @@ export default function Settings() {
               disabled={loading || saving}
               helperText="Leave empty if you do not want to change it"
               fullWidth
-              sx={textFieldStyle}
+              sx={{ ...textFieldStyle, marginBottom: "20px" }}
               slotProps={{
                 input: {
                   endAdornment: (
@@ -323,10 +319,16 @@ export default function Settings() {
               onClick={handleSave}
               disabled={loading || saving}
               sx={{
-                py: 1.2,
+                py: 1,
+                px: 3,
+                width: "100%",
+                maxWidth: "250px",
+                display: "block",
+                margin: "0 auto",
                 borderRadius: 6,
                 fontWeight: 700,
                 textTransform: "none",
+                fontSize: "16px",
               }}>
               {saving ? "Saving..." : "Save Changes"}
             </Button>

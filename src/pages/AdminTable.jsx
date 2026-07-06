@@ -64,9 +64,9 @@ const calculateUsedMinutes = (item) => {
 
 export default function AdminTable() {
   const [currentUserId, setCurrentUserId] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const [canManageEmployees, setCanManageEmployees] = useState(false);
   const [employees, setEmployees] = useState([]);
-  const [isTeamLeader, setIsTeamLeader] = useState(false);
   const [breaks, setBreaks] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [employeeShifts, setEmployeeShifts] = useState({});
@@ -201,17 +201,17 @@ export default function AdminTable() {
 
         if (currentEmployeeError) throw currentEmployeeError;
 
-        const isAdminUser = currentEmployee?.role === "admin";
-        const isLeaderUser = currentEmployee?.role === "team_leader";
+        setUserRole(currentEmployee?.role || "");
 
-        if (!isAdminUser && !isLeaderUser) {
-          setIsAdmin(false);
+        const canManage =
+          currentEmployee?.role === "admin" ||
+          currentEmployee?.role === "team_leader";
+
+        setCanManageEmployees(canManage);
+
+        if (!canManage) {
           return;
         }
-
-        setIsAdmin(isAdminUser);
-        setIsTeamLeader(isLeaderUser);
-        setIsAdmin(true);
 
         const { data: adminData, error: adminError } =
           await supabase.functions.invoke("admin-data");
@@ -332,11 +332,17 @@ export default function AdminTable() {
         <div className="settings-panel admin-panel">
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
-              Employee Management
+              {userRole === "admin"
+                ? "Employee Management"
+                : userRole === "team_leader"
+                  ? "Team Management"
+                  : "Employee Management"}
             </Typography>
 
             <Typography variant="body2" sx={{ color: "#64748b", mt: 0.5 }}>
-              Manage employee roles, shifts, and department assignments.
+              {userRole === "admin"
+                ? "Manage employee roles, shifts, and department assignments."
+                : "Manage your team members and their shifts."}
             </Typography>
           </div>
 
@@ -347,7 +353,7 @@ export default function AdminTable() {
             </div>
           )}
 
-          {!loading && !isAdmin && (
+          {!loading && !canManageEmployees && (
             <div className="admin-empty">
               You do not have permission to view this page.
             </div>
@@ -453,7 +459,7 @@ export default function AdminTable() {
             </Button>
           </div>
 
-          {!loading && isAdmin && (
+          {!loading && canManageEmployees && (
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
@@ -511,7 +517,10 @@ export default function AdminTable() {
                             size="small"
                             select
                             value={employee.role || "employee"}
-                            disabled={updatingUserId === employee.user_id}
+                            disabled={
+                              userRole === "team_leader" ||
+                              updatingUserId === employee.user_id
+                            }
                             onChange={(event) =>
                               handleRoleChange(employee, event.target.value)
                             }>

@@ -256,7 +256,7 @@ export default function AttendanceTable() {
         <div className="settings-panel admin-panel">
           <div className="settings-header">
             <Typography variant="h4" sx={{ fontWeight: 800, color: "#0f172a" }}>
-              {!isAdmin ? "Attendance Logs" : "My Attendance"}
+              {isAdmin ? "Attendance Logs" : "My Attendance"}
             </Typography>
 
             <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>

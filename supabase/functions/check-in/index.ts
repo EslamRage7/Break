@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
 
         check_in: now.toISOString(),
 
-        early_arrival_minutes: earlyArrivalMinutes,
+        early_minutes: earlyArrivalMinutes,
         late_minutes: lateMinutes,
 
         status: "Working",

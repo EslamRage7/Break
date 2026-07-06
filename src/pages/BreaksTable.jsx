@@ -156,6 +156,10 @@ export default function BreaksTable() {
 
         if (adminError) throw adminError;
 
+        if (!adminData?.success) {
+          throw new Error(adminData?.message || "Failed to load break data");
+        }
+
         let employeeRows = adminData?.employees || [];
         let breakRows = adminData?.breaks || [];
 
@@ -169,6 +173,9 @@ export default function BreaksTable() {
 
           breakRows = breakRows.filter((b) => teamIds.includes(b.user_id));
         }
+
+        setEmployees(employeeRows);
+        setBreaks(breakRows);
       } catch (err) {
         console.error(err);
         showMessage(err.message || "Failed to load breaks table", "error");

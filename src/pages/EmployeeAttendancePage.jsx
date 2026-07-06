@@ -17,36 +17,66 @@ const formatDateTime = (value) => {
     return text;
   }
 
-  const isoMatch = text.match(
-    /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,3})?)(?:Z|[+-]\d{2}:\d{2})?$/,
-  );
-
-  if (isoMatch) {
-    const [, datePart, timePart] = isoMatch;
-    const normalizedValue = `${datePart}T${timePart.replace(/\.\d+$/, "")}`;
-    const parsedDate = new Date(normalizedValue);
-
-    if (!Number.isNaN(parsedDate.getTime())) {
-      return new Intl.DateTimeFormat("en", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Africa/Cairo",
-      }).format(parsedDate);
-    }
-  }
-
   const parsedDate = new Date(text);
   if (!Number.isNaN(parsedDate.getTime())) {
-    return new Intl.DateTimeFormat("en", {
-      dateStyle: "medium",
-      timeStyle: "short",
+    return new Intl.DateTimeFormat("en-GB", {
       timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     }).format(parsedDate);
   }
 
   return text;
 };
 
+const formatDateOnly = (value) => {
+  if (!value) return "-";
+
+  const text = `${value}`.trim();
+  if (!text) return "-";
+
+  const parsedDate = new Date(text);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }).format(parsedDate);
+  }
+
+  return text;
+};
+
+const formatWorkDuration = (minutes) => {
+  const totalMinutes = Number(minutes) || 0;
+
+  if (!totalMinutes) return "-";
+
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+
+  if (hours && mins) return `${hours}h ${mins}m`;
+  if (hours) return `${hours}h`;
+  return `${mins}m`;
+};
+
+const formatMinutes = (minutes) => {
+  const totalMinutes = Number(minutes) || 0;
+
+  if (!totalMinutes) return "-";
+
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+
+  if (hours && mins) return `${hours}h ${mins}m`;
+  if (hours) return `${hours}h`;
+  return `${mins}m`;
+};
 export default function EmployeeAttendancePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -126,7 +156,7 @@ export default function EmployeeAttendancePage() {
         const { data: logsData, error: logsError } = await supabase
           .from("attendance")
           .select(
-            "id,user_id,check_in,check_out,work_minutes,status,created_at",
+            "id,user_id,check_in,check_out,work_minutes,status,created_at,early_minutes,overtime_minutes,attendance_date,shift_name,early_arrival_minutes,late_minutes",
           )
           .eq("user_id", userId)
           .order("created_at", { ascending: false });
@@ -211,9 +241,14 @@ export default function EmployeeAttendancePage() {
                   <thead>
                     <tr>
                       <th>#</th>
+                      <th className="text-center">Shift</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
-                      <th className="text-center">Minutes</th>
+                      <th className="text-center">Early Arrival</th>
+                      <th className="text-center">Worked Hours</th>
+                      <th className="text-center">Late Arrival</th>
+                      <th className="text-center">Early Leave</th>
+                      <th className="text-center">Overtime</th>
                       <th className="text-center">Status</th>
                     </tr>
                   </thead>
@@ -231,28 +266,42 @@ export default function EmployeeAttendancePage() {
                             <strong>{index + 1}</strong>
                           </td>
                           <td className="text-center">
+                            {log.shift_name || "-"}
+                          </td>
+                          <td className="text-center">
                             {formatDateTime(log.check_in)}
                           </td>
                           <td className="text-center">
                             {formatDateTime(log.check_out)}
                           </td>
                           <td className="text-center">
-                            {log.work_minutes || 0}
+                            {formatWorkDuration(log.early_arrival_minutes)}
+                          </td>
+                          <td className="text-center">
+                            {formatWorkDuration(log.work_minutes)}
+                          </td>
+
+                          <td className="text-center">
+                            {formatMinutes(log.late_minutes)}
+                          </td>
+                          <td className="text-center">
+                            {formatMinutes(log.early_minutes)}
+                          </td>
+                          <td className="text-center">
+                            {formatMinutes(log.overtime_minutes)}
                           </td>
                           <td className="text-center">
                             <span
                               className={`table-pill ${
-                                !log.check_in
+                                log.status === "Absent"
                                   ? "table-pill-danger"
-                                  : log.check_in && !log.check_out
+                                  : log.status === "Working"
                                     ? "table-pill-success"
-                                    : "table-pill-neutral"
+                                    : log.status === "Late"
+                                      ? "table-pill-warning"
+                                      : "table-pill-neutral"
                               }`}>
-                              {!log.check_in
-                                ? "Absent"
-                                : log.check_in && !log.check_out
-                                  ? "Working"
-                                  : "Shift Finished"}
+                              {log.status || "-"}
                             </span>
                           </td>
                         </tr>

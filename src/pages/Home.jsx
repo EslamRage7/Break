@@ -68,28 +68,27 @@ function Home() {
 
     const today = getTodayKey();
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("attendance")
       .select("*")
       .eq("user_id", user.id)
-      .gte("check_in", `${today}T00:00:00`)
-      .lte("check_in", `${today}T23:59:59`)
+      .eq("attendance_date", today)
       .order("check_in", { ascending: false })
       .limit(1);
 
-    const latestAttendance = data?.[0] ?? null;
-    const hasActiveAttendance =
-      !!latestAttendance && latestAttendance.check_out === null;
-    const hasCompletedAttendanceToday =
-      !!latestAttendance && latestAttendance.check_out !== null;
-
-    setIsCheckedIn(hasActiveAttendance);
-    setAttendanceCompletedToday(hasCompletedAttendanceToday);
-
-    if (!hasActiveAttendance && !hasCompletedAttendanceToday) {
-      setShowCompletedMessage(false);
+    if (error) {
+      console.error(error);
+      return;
     }
-  }, [resetCompletedMessageState, writeCompletedMessageState]);
+
+    const latestAttendance = data?.[0] ?? null;
+
+    setIsCheckedIn(!!latestAttendance && latestAttendance.check_out === null);
+
+    setAttendanceCompletedToday(
+      !!latestAttendance && latestAttendance.check_out !== null,
+    );
+  }, []);
 
   const handleAttendance = async () => {
     try {
@@ -163,19 +162,8 @@ function Home() {
         showConfirmButton: false,
       });
 
-      if (isCheckedIn) {
-        setIsCheckedIn(false);
-        setShowCompletedMessage(true);
-        setAttendanceCompletedToday(true);
-        setBreakRefreshKey((prev) => prev + 1);
-      } else {
-        setIsCheckedIn(true);
-        setShowCompletedMessage(false);
-        setAttendanceCompletedToday(false);
-        setBreakRefreshKey((prev) => prev + 1);
-      }
-
       await checkAttendance();
+      setBreakRefreshKey((p) => p + 1);
     } catch (err) {
       console.error(err);
 
@@ -196,7 +184,7 @@ function Home() {
 
     init();
   }, [checkAttendance]);
-
+  [];
   useEffect(() => {
     const interval = setInterval(async () => {
       const currentDay = getTodayKey();
@@ -259,7 +247,13 @@ function Home() {
   }, []);
 
   const navigate = useNavigate();
-
+  console.log({
+    isCheckedIn,
+    attendanceCompletedToday,
+    hasShift,
+    role,
+    loadingAttendance,
+  });
   return (
     <>
       <div className="dashboard-layout">

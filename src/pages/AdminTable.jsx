@@ -478,7 +478,16 @@ export default function AdminTable() {
                     const employeeBreaks = breaksByUser[employee.user_id] || [];
 
                     return (
-                      <tr key={employee.user_id}>
+                      <tr
+                        key={employee.user_id}
+                        style={{
+                          backgroundColor:
+                            employee.role === "team_leader"
+                              ? "#fffacd57"
+                              : employee.role === "admin"
+                                ? "#ffcccc4d"
+                                : "transparent",
+                        }}>
                         <td>
                           <strong>{index + 1}</strong>
                         </td>

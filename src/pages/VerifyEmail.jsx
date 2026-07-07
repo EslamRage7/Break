@@ -308,20 +308,30 @@ function VerifyEmail() {
       if (signInError) {
         throw signInError;
       }
-      const { data: team, error: teamError } = await supabase
-        .from("teams")
-        .select("id")
-        .eq("team_name", tempUser.department)
-        .single();
+      let teamId = tempUser.team_id;
+      let team = null;
 
-      if (teamError) throw teamError;
+      if (teamId) {
+        const { data: teamData, error: teamError } = await supabase
+          .from("teams")
+          .select("id")
+          .eq("id", teamId)
+          .maybeSingle();
+
+        if (teamError) throw teamError;
+
+        if (!teamData) {
+          throw new Error(`Team with ID "${teamId}" not found`);
+        }
+      }
+      console.log("Temp User:", tempUser);
       const employeeData = {
         user_id: createdUserId,
         email: tempUser.email,
         first_name: tempUser.first_name,
         last_name: tempUser.last_name,
         department: tempUser.department,
-        team_id: team.id,
+        team_id: tempUser.team_id,
         gender: tempUser.gender === "true" || tempUser.gender === true,
         role: "employee",
         verified: true,

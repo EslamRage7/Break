@@ -483,9 +483,9 @@ export default function AdminTable() {
                         style={{
                           backgroundColor:
                             employee.role === "team_leader"
-                              ? "#fffacd57"
+                              ? "#fffacd34"
                               : employee.role === "admin"
-                                ? "#ffcccc4d"
+                                ? "#ffcccc2d"
                                 : "transparent",
                         }}>
                         <td>

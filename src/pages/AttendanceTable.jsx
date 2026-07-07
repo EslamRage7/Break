@@ -152,6 +152,7 @@ export default function AttendanceTable() {
       created_at
     `,
             )
+            .order("attendance_date", { ascending: false })
             .order("created_at", { ascending: false });
 
           // For team leaders, filter by their team members
@@ -226,6 +227,10 @@ export default function AttendanceTable() {
   }, [employees]);
 
   const filteredLogs = useMemo(() => {
+    if (!canManageAttendance) {
+      return logs || [];
+    }
+
     const seenUsers = new Set();
 
     return (logs || []).filter((log) => {
@@ -259,7 +264,15 @@ export default function AttendanceTable() {
       seenUsers.add(log.user_id);
       return true;
     });
-  }, [logs, employeeLookup, nameQuery, departmentQuery, roleQuery, dateQuery]);
+  }, [
+    logs,
+    employeeLookup,
+    nameQuery,
+    departmentQuery,
+    roleQuery,
+    dateQuery,
+    canManageAttendance,
+  ]);
 
   const employeeOptions = useMemo(() => {
     return (employees || [])

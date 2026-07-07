@@ -26,28 +26,9 @@ function Home() {
       timeZone: "Africa/Cairo",
     }).format(new Date());
 
-  const getCompletedMessageKey = useCallback(
-    () => `attendance-completed:${getTodayKey()}`,
-    [],
-  );
-
-  const readCompletedMessageState = useCallback(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(getCompletedMessageKey()) === "true";
-  }, [getCompletedMessageKey]);
-
-  const writeCompletedMessageState = useCallback(
-    (value) => {
-      if (typeof window === "undefined") return;
-      window.localStorage.setItem(getCompletedMessageKey(), String(value));
-    },
-    [getCompletedMessageKey],
-  );
-
   const resetCompletedMessageState = useCallback(() => {
-    writeCompletedMessageState(false);
     setShowCompletedMessage(false);
-  }, [writeCompletedMessageState]);
+  }, []);
 
   let displayName = "";
 
@@ -184,14 +165,11 @@ function Home() {
   useEffect(() => {
     const init = async () => {
       dayKeyRef.current = getTodayKey();
-
       await checkAttendance();
-
-      setShowCompletedMessage(readCompletedMessageState());
     };
 
     init();
-  }, [checkAttendance, readCompletedMessageState]);
+  }, [checkAttendance]);
 
   useEffect(() => {
     const interval = setInterval(async () => {

@@ -25,7 +25,6 @@ export default function Register() {
   const [last_name, setLastName] = useState("");
   const [gender, setGender] = useState("");
   const [department, setDepartment] = useState("");
-  const [teamId, setTeamId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -100,6 +99,22 @@ export default function Register() {
         last_name.trim(),
       );
       const emailSendFailed = !emailResult.success;
+      const { data: team, error: teamError } = await supabase
+        .from("teams")
+        .select("*");
+
+      console.log(team);
+      console.log(teamError);
+
+      const TEAM_IDS = {
+        "Call Center": "28f2053d-eff2-4c1e-a66b-75c7069b75d8",
+        "Graphic Design": "27f146a6-8eb9-4000-af76-ee3da0131f4b",
+        "Data Entry": "ffdb9ac1-3c50-4fa2-b23f-e603895a32e6",
+        Development: "ecb8519d-29a7-4647-8e71-a7de20f9b7d9",
+        Packaging: "7d35ef21-c6b0-455e-b61a-3a5997062420",
+      };
+
+      if (teamError) throw teamError;
 
       // 2. Save temp data locally (until verification)
       const pendingUser = {
@@ -108,8 +123,8 @@ export default function Register() {
         first_name: first_name.trim(),
         last_name: last_name.trim(),
         department,
+        team_id: TEAM_IDS[department],
         gender,
-        team_id: teamId,
         code,
         expire,
       };

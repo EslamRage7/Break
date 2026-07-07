@@ -4,10 +4,17 @@ import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
-import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
-import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
+
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
+
+import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
+
+import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
+import CoffeeRoundedIcon from "@mui/icons-material/CoffeeRounded";
+
 import { NavLink, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { supabase } from "../supabaseClient";
@@ -202,7 +209,31 @@ export default function Sidebar() {
 
   const navLinkClass = ({ isActive }) =>
     isActive ? "sidebar-link active" : "sidebar-link";
+  const profileIcon = isAdmin ? (
+    <AdminPanelSettingsRoundedIcon fontSize="small" />
+  ) : isTeamLeader ? (
+    <BadgeRoundedIcon fontSize="small" />
+  ) : (
+    <PersonRoundedIcon fontSize="small" />
+  );
 
+  const employeesIcon = isAdmin ? (
+    <GroupRoundedIcon fontSize="small" />
+  ) : (
+    <GroupsRoundedIcon fontSize="small" />
+  );
+
+  const attendanceIcon = canManageEmployees ? (
+    <FactCheckRoundedIcon fontSize="small" />
+  ) : (
+    <BadgeRoundedIcon fontSize="small" />
+  );
+
+  const breaksIcon = isAdmin ? (
+    <CoffeeRoundedIcon fontSize="small" />
+  ) : (
+    <AccessTimeRoundedIcon fontSize="small" />
+  );
   return (
     <>
       <button
@@ -236,46 +267,42 @@ export default function Sidebar() {
             to="/settings"
             className={navLinkClass}
             onClick={closeSidebar}>
-            <PersonRoundedIcon fontSize="small" />
+            {profileIcon}
             <span>Profile</span>
           </NavLink>
 
           {canManageEmployees && (
-            <>
-              <NavLink
-                to="/table"
-                className={navLinkClass}
-                onClick={closeSidebar}>
-                <BadgeRoundedIcon fontSize="small" />
-                <span>
-                  {isAdmin
-                    ? "Employees"
-                    : isTeamLeader
-                      ? "Team Members"
-                      : "Employees"}
-                </span>
-              </NavLink>
-            </>
+            <NavLink
+              to="/table"
+              className={navLinkClass}
+              onClick={closeSidebar}>
+              {employeesIcon}
+              <span>
+                {isAdmin
+                  ? "Employees"
+                  : isTeamLeader
+                    ? "Team Members"
+                    : "Employees"}
+              </span>
+            </NavLink>
           )}
 
           <NavLink
             to="/attendance"
             className={navLinkClass}
             onClick={closeSidebar}>
-            <PeopleRoundedIcon fontSize="small" />
-            <span>{canManageEmployees ? "Attendance " : "My Attendance"}</span>
+            {attendanceIcon}
+            <span>{canManageEmployees ? "Attendance" : "My Attendance"}</span>
           </NavLink>
 
           {canManageEmployees && (
-            <>
-              <NavLink
-                to="/breaks"
-                className={navLinkClass}
-                onClick={closeSidebar}>
-                <AccessTimeRoundedIcon fontSize="small" />
-                <span>Breaks</span>
-              </NavLink>
-            </>
+            <NavLink
+              to="/breaks"
+              className={navLinkClass}
+              onClick={closeSidebar}>
+              {breaksIcon}
+              <span>Breaks</span>
+            </NavLink>
           )}
         </nav>
 

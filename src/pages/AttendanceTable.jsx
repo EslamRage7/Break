@@ -446,7 +446,6 @@ export default function AttendanceTable() {
                       <th className="text-center">Shift</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
-
                       <th className="text-center">Status</th>
                     </tr>
                   </thead>

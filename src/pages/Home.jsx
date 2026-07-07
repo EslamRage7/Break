@@ -164,6 +164,11 @@ function Home() {
 
       await checkAttendance();
       setBreakRefreshKey((p) => p + 1);
+
+      if (isCheckedIn) {
+        writeCompletedMessageState(true);
+        setShowCompletedMessage(true);
+      }
     } catch (err) {
       console.error(err);
 
@@ -179,12 +184,15 @@ function Home() {
   useEffect(() => {
     const init = async () => {
       dayKeyRef.current = getTodayKey();
+
       await checkAttendance();
+
+      setShowCompletedMessage(readCompletedMessageState());
     };
 
     init();
-  }, [checkAttendance]);
-  [];
+  }, [checkAttendance, readCompletedMessageState]);
+
   useEffect(() => {
     const interval = setInterval(async () => {
       const currentDay = getTodayKey();

@@ -222,6 +222,7 @@ function VerifyEmail() {
             body: {
               email: tempUser.email,
               password: tempUser.password,
+              team_id: tempUser.team_id,
               user_metadata: {
                 first_name: tempUser.first_name,
                 last_name: tempUser.last_name,
@@ -236,9 +237,15 @@ function VerifyEmail() {
         );
 
         console.log("========== Function Result ==========");
+
         if (functionResult.error) {
-          console.log(await functionResult.error.context.text());
+          console.log("Function Error:", functionResult.error);
+
+          if (functionResult.error.context) {
+            console.log(await functionResult.error.context.text());
+          }
         }
+
         console.log("Data:", functionResult?.data);
         console.log("Error:", functionResult?.error);
         console.log("====================================");
@@ -247,6 +254,7 @@ function VerifyEmail() {
         createUserError = functionResult?.error;
       } catch (err) {
         console.error("create-verified-user invoke failed", err);
+        console.log("STATUS:", functionResult);
         createUserError = err;
       }
 
@@ -300,13 +308,20 @@ function VerifyEmail() {
       if (signInError) {
         throw signInError;
       }
+      const { data: team, error: teamError } = await supabase
+        .from("teams")
+        .select("id")
+        .eq("team_name", tempUser.department)
+        .single();
 
+      if (teamError) throw teamError;
       const employeeData = {
         user_id: createdUserId,
         email: tempUser.email,
         first_name: tempUser.first_name,
         last_name: tempUser.last_name,
         department: tempUser.department,
+        team_id: team.id,
         gender: tempUser.gender === "true" || tempUser.gender === true,
         role: "employee",
         verified: true,
@@ -336,7 +351,10 @@ function VerifyEmail() {
       if (saveError) throw saveError;
 
       localStorage.removeItem("temp_user");
-      showMessage("Email verified successfully! Redirecting to the site...", "success");
+      showMessage(
+        "Email verified successfully! Redirecting to the site...",
+        "success",
+      );
       setTimeout(() => {
         navigate("/home", { replace: true });
       }, 1500);

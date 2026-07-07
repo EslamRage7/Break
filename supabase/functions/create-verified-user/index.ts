@@ -22,7 +22,6 @@ Deno.serve(async (req) => {
     console.log(JSON.stringify(body, null, 2));
 
     const { email, password, user_metadata } = body;
-
     if (!email || !password) {
       return new Response(
         JSON.stringify({
@@ -88,11 +87,14 @@ Deno.serve(async (req) => {
     );
 
     if (error) {
+      console.error("Create User Error:");
+      console.error(JSON.stringify(error, null, 2));
+
       return new Response(
         JSON.stringify({
           success: false,
           message: error.message,
-          error,
+          details: error,
         }),
         {
           status: 400,

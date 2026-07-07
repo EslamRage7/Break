@@ -25,6 +25,7 @@ export default function Register() {
   const [last_name, setLastName] = useState("");
   const [gender, setGender] = useState("");
   const [department, setDepartment] = useState("");
+  const [teamId, setTeamId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -108,10 +109,10 @@ export default function Register() {
         last_name: last_name.trim(),
         department,
         gender,
+        team_id: teamId,
         code,
         expire,
       };
-
       localStorage.setItem("temp_user", JSON.stringify(pendingUser));
 
       if (emailSendFailed) {

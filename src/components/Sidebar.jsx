@@ -66,6 +66,8 @@ export default function Sidebar() {
       cancelButtonText: "Cancel",
       reverseButtons: true,
       buttonsStyling: false,
+      allowOutsideClick: true,
+      allowEscapeKey: true,
       customClass: {
         popup: "logout-swal-popup",
         title: "logout-swal-title",

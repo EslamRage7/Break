@@ -95,7 +95,7 @@ export default function AttendanceTable() {
             .select("role, team_id")
             .eq("user_id", user.id)
             .maybeSingle();
-
+        console.log("Current Employee", currentEmployee);
         if (currentEmployeeError) throw currentEmployeeError;
 
         setUserRole(currentEmployee?.role || "");
@@ -119,15 +119,23 @@ export default function AttendanceTable() {
 
         if (employeeError) throw employeeError;
 
-        // Filter employees based on role
-        let filteredEmployees = employeeRows || [];
+        let visibleEmployees = employeeRows || [];
         if (currentEmployee?.role === "team_leader") {
-          filteredEmployees = filteredEmployees.filter(
-            (emp) => emp.team_id === currentEmployee.team_id,
+          const teamMemberIds = [
+            ...new Set([
+              ...visibleEmployees
+                .filter((emp) => emp.team_id === currentEmployee.team_id)
+                .map((emp) => emp.user_id),
+              user.id,
+            ]),
+          ];
+
+          visibleEmployees = visibleEmployees.filter((emp) =>
+            teamMemberIds.includes(emp.user_id),
           );
         }
 
-        setEmployees(filteredEmployees);
+        setEmployees(visibleEmployees);
 
         let logsData = [];
 
@@ -151,22 +159,40 @@ export default function AttendanceTable() {
       status,
       created_at
     `,
+              { count: "exact" },
             )
             .order("attendance_date", { ascending: false })
             .order("created_at", { ascending: false });
 
-          // For team leaders, filter by their team members
           if (currentEmployee?.role === "team_leader") {
-            const teamMemberIds = filteredEmployees.map((emp) => emp.user_id);
+            const teamMemberIds = visibleEmployees.map((emp) => emp.user_id);
             attendanceQuery = attendanceQuery.in("user_id", teamMemberIds);
           }
-
           const { data, error } = await attendanceQuery;
 
           if (error) throw error;
 
-          logsData = data;
-          setLogs(logsData || []);
+          const attendanceMap = new Map();
+          (data || []).forEach((item) => {
+            if (!attendanceMap.has(item.user_id)) {
+              attendanceMap.set(item.user_id, item);
+            }
+          });
+
+          logsData = visibleEmployees.map(
+            (employee) =>
+              attendanceMap.get(employee.user_id) || {
+                id: employee.user_id,
+                user_id: employee.user_id,
+                attendance_date: null,
+                shift_name: "-",
+                check_in: null,
+                check_out: null,
+                status: "Absent",
+              },
+          );
+
+          setLogs(logsData);
         } else {
           const { data, error } = await supabase
             .from("attendance")
@@ -197,7 +223,6 @@ export default function AttendanceTable() {
         }
 
         setLogs(logsData || []);
-        console.log(logsData);
       } catch (err) {
         console.error(err);
         setSnackbar({
@@ -323,8 +348,6 @@ export default function AttendanceTable() {
     setRoleQuery("");
     setDateQuery("");
   };
-
-  console.log(filteredLogs);
 
   return (
     <div className="dashboard-layout">
@@ -478,7 +501,7 @@ export default function AttendanceTable() {
                             <strong>{i + 1}</strong>
                           </td>
 
-                          <td>
+                          <td className="text-capitalize">
                             <span
                               onClick={() =>
                                 canManageAttendance &&

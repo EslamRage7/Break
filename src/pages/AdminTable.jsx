@@ -491,7 +491,7 @@ export default function AdminTable() {
                         <td>
                           <strong>{index + 1}</strong>
                         </td>
-                        <td>
+                        <td className="text-capitalize">
                           <strong>
                             {employee.first_name} {employee.last_name}
                           </strong>

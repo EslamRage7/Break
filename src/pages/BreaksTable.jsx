@@ -397,6 +397,7 @@ export default function BreaksTable() {
                           </td>
                           <td>
                             <button
+                              className="text-capitalize"
                               type="button"
                               onClick={() =>
                                 navigate(`/employee-breaks/${item.user_id}`)

@@ -72,7 +72,7 @@ const formatWorkDuration = (minutes) => {
 
   const overtimeText =
     overtimeHours || overtimeMinutes
-      ? `${overtimeHours}h${overtimeMinutes ? ` ${overtimeMinutes}m` : ""} overtime`
+      ? `${overtimeHours}h${overtimeMinutes ? ` ${overtimeMinutes}m` : ""} `
       : "overtime";
 
   return `${regularHours}h${regularMinutes ? ` ${regularMinutes}m` : ""} + ${overtimeText}`;
@@ -318,13 +318,13 @@ export default function EmployeeAttendancePage() {
                                     padding: "6px 10px",
                                     borderRadius: 999,
                                     background: isOvertime
-                                      ? "rgba(249, 115, 22, 0.12)"
-                                      : "rgba(16, 185, 129, 0.12)",
+                                      ? "#f974151f"
+                                      : "#10b9811f",
                                     color: isOvertime ? "#c2410c" : "#047857",
                                     fontWeight: 700,
                                     border: isOvertime
-                                      ? "1px solid rgba(249, 115, 22, 0.3)"
-                                      : "1px solid rgba(16, 185, 129, 0.25)",
+                                      ? "1px solid #f973164d"
+                                      : "1px solid #10b98140",
                                   }}>
                                   {value}
                                   {isOvertime && (

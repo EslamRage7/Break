@@ -154,7 +154,7 @@ function Home() {
 
       Swal.fire({
         icon: "info",
-        title: "Error",
+
         text: "You have already checked in today",
       });
     } finally {

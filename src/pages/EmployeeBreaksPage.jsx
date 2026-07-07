@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, CircularProgress, Snackbar } from "@mui/material";
+import {
+  Alert,
+  Button,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Snackbar,
+} from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
@@ -64,6 +73,7 @@ export default function EmployeeBreaksPage() {
   const navigate = useNavigate();
   const [breaks, setBreaks] = useState([]);
   const [employee, setEmployee] = useState(null);
+  const [dayQuery, setDayQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -84,6 +94,27 @@ export default function EmployeeBreaksPage() {
       userId
     );
   }, [employee, userId]);
+
+  const availableDates = useMemo(() => {
+    const set = new Set();
+    (breaks || []).forEach((item) => {
+      if (item.start_time) {
+        const date = item.start_time.split("T")[0];
+        set.add(date);
+      }
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [breaks]);
+
+  const filteredBreaks = useMemo(() => {
+    return (breaks || []).filter((item) => {
+      if (dayQuery) {
+        const itemDay = item.start_time ? item.start_time.split("T")[0] : "";
+        return itemDay === dayQuery;
+      }
+      return true;
+    });
+  }, [breaks, dayQuery]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -130,9 +161,10 @@ export default function EmployeeBreaksPage() {
 
         setEmployee(selectedEmployee);
 
-        const employeeBreaks = (adminData?.breaks || []).filter(
+        const employeeBreaks = (adminData?.break_segments || []).filter(
           (item) => item.user_id === userId,
         );
+
         setBreaks(
           employeeBreaks.sort(
             (a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0),
@@ -150,12 +182,6 @@ export default function EmployeeBreaksPage() {
       loadData();
     }
   }, [userId]);
-
-  const getStatusLabel = (item) => {
-    if (item.is_paused) return "Paused";
-    if (item.status) return item.status;
-    return "-";
-  };
 
   return (
     <div className="dashboard-layout">
@@ -210,58 +236,92 @@ export default function EmployeeBreaksPage() {
           </div>
 
           {!loading && isAdmin && (
-            <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th className="text-center">Start Time</th>
-                    <th className="text-center">End Time</th>
-                    <th className="text-center">Duration</th>
-                    <th className="text-center">Used</th>
-                    <th className="text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {breaks.length === 0 ? (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginBottom: 16,
+                  alignItems: "center",
+                }}>
+                <FormControl size="small" style={{ minWidth: 180 }}>
+                  <InputLabel id="date-filter-label">Date</InputLabel>
+                  <Select
+                    labelId="date-filter-label"
+                    label="Date"
+                    value={dayQuery}
+                    onChange={(e) => setDayQuery(e.target.value)}>
+                    <MenuItem value="">All dates</MenuItem>
+                    {availableDates.map((date) => (
+                      <MenuItem value={date} key={date}>
+                        {new Intl.DateTimeFormat("en", {
+                          dateStyle: "medium",
+                          timeZone: "Africa/Cairo",
+                        }).format(new Date(date))}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setDayQuery("")}
+                  sx={{
+                    height: 40,
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
+                  }}>
+                  Clear
+                </Button>
+              </div>
+
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
                     <tr>
-                      <td colSpan={6}>No breaks found for this employee.</td>
+                      <th>#</th>
+                      <th className="text-center">Start Time</th>
+                      <th className="text-center">End Time</th>
+                      <th className="text-center">Duration</th>
+                      <th className="text-center">Used</th>
                     </tr>
-                  ) : (
-                    breaks.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <strong>{index + 1}</strong>
-                        </td>
-                        <td className="text-center">
-                          {formatDateTime(item.start_time)}
-                        </td>
-                        <td className="text-center">
-                          {formatDateTime(item.end_time)}
-                        </td>
-                        <td className="text-center">
-                          {formatDuration(item.duration_minutes)}
-                        </td>
-                        <td className="text-center">
-                          {formatDuration(item.used_minutes)}
-                        </td>
-                        <td className="text-center">
-                          <span
-                            className={`table-pill  ${
-                              item.is_paused
-                                ? "table-pill-neutral"
-                                : item.status === "active"
-                                  ? "table-pill-success"
-                                  : "table-pill-neutral"
-                            }`}>
-                            {getStatusLabel(item)}
-                          </span>
-                        </td>
+                  </thead>
+                  <tbody>
+                    {filteredBreaks.length === 0 ? (
+                      <tr>
+                        <td colSpan={6}>No breaks found for this employee.</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredBreaks.map((item, index) => (
+                        <tr key={item.id}>
+                          <td>
+                            <strong>{index + 1}</strong>
+                          </td>
+
+                          <td className="text-center">
+                            {formatDateTime(item.start_time)}
+                          </td>
+
+                          <td className="text-center">
+                            {formatDateTime(item.end_time)}
+                          </td>
+
+                          <td className="text-center">
+                            {Math.floor((item.duration_seconds || 0) / 60)}m
+                          </td>
+
+                          <td className="text-center">
+                            {Math.floor((item.duration_seconds || 0) / 60)}m
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

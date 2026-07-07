@@ -282,7 +282,15 @@ export default function Break({
       setSeconds(0);
       setRemainingBreak(0);
       setSession(null);
+      const usedSeconds = 2700 - (minutes * 60 + seconds);
 
+      await supabase.from("break_segments").insert({
+        break_session_id: resolvedSessionId,
+        user_id: user.id,
+        start_time: session.start_time,
+        end_time: new Date().toISOString(),
+        duration_seconds: usedSeconds - (session.used_seconds || 0),
+      });
       if (resolvedSessionId) {
         await finalizeBreakSession(resolvedSessionId);
       }
@@ -342,7 +350,14 @@ export default function Break({
     setRunning(false);
 
     const usedSeconds = 2700 - (minutes * 60 + seconds);
-    syncCounterRef.current = 0;
+    await supabase.from("break_segments").insert({
+      break_session_id: session.id,
+      user_id: user.id,
+      start_time: session.start_time,
+      end_time: new Date().toISOString(),
+      duration_seconds: usedSeconds - (session.used_seconds || 0),
+    });
+
     await supabase
       .from("break_sessions")
       .update({
@@ -352,27 +367,21 @@ export default function Break({
         used_minutes: Math.floor(usedSeconds / 60),
       })
       .eq("id", session.id);
-
     setSession((prev) => ({
       ...prev,
       is_paused: true,
       used_seconds: usedSeconds,
       used_minutes: Math.floor(usedSeconds / 60),
     }));
-
     await loadTodayUsage(user.id);
-    setRunning(false);
   };
 
   const resumeBreak = async () => {
-    if (!session || isDisabled) return;
+    if (!session) return;
 
     const used = await loadTodayUsage(user.id);
 
-    if (used >= 45) {
-      alert("Daily limit reached");
-      return;
-    }
+    if (used >= BREAK_LIMIT) return;
 
     const elapsedSeconds = session.used_seconds || 0;
 
@@ -392,12 +401,11 @@ export default function Break({
       is_paused: false,
       start_time: newStart,
     }));
-    syncCounterRef.current = 0;
-    setRunning(true);
-    await loadTodayUsage(user.id);
-    setIsFinished(false);
-  };
 
+    setRunning(true);
+
+    await loadTodayUsage(user.id);
+  };
   useEffect(() => {
     if (!session) return;
 

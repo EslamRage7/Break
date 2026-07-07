@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
     if (currentEmployeeError) throw currentEmployeeError;
     let employees = [];
     let breaks = [];
+    let breakSegments = [];
 
     if (currentEmployee.role === "admin") {
       const { data, error } = await supabase
@@ -147,6 +148,17 @@ Deno.serve(async (req) => {
 
       breaks = data;
     }
+    if (ids.length) {
+      const { data, error } = await supabase
+        .from("break_segments")
+        .select("*")
+        .in("user_id", ids)
+        .order("start_time", { ascending: false });
+
+      if (error) throw error;
+
+      breakSegments = data || [];
+    }
 
     // Keep only the latest break per user (breaks are ordered by start_time desc)
     const latestByUser = [];
@@ -164,6 +176,7 @@ Deno.serve(async (req) => {
         success: true,
         employees: employees || [],
         breaks: latestByUser,
+        break_segments: breakSegments,
       }),
       {
         status: 200,

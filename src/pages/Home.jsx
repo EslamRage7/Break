@@ -147,7 +147,6 @@ function Home() {
       setBreakRefreshKey((p) => p + 1);
 
       if (isCheckedIn) {
-        writeCompletedMessageState(true);
         setShowCompletedMessage(true);
       }
     } catch (err) {
@@ -155,7 +154,8 @@ function Home() {
 
       Swal.fire({
         icon: "info",
-        title: "You have already checked in for today",
+        title: "Error",
+        text: "You have already checked in today",
       });
     } finally {
       setLoadingAttendance(false);

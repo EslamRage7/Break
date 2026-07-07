@@ -285,7 +285,7 @@ export default function EmployeeBreaksPage() {
                       <th>#</th>
                       <th className="text-center">Start Time</th>
                       <th className="text-center">End Time</th>
-                      <th className="text-center">Duration</th>
+
                       <th className="text-center">Used</th>
                     </tr>
                   </thead>
@@ -307,10 +307,6 @@ export default function EmployeeBreaksPage() {
 
                           <td className="text-center">
                             {formatDateTime(item.end_time)}
-                          </td>
-
-                          <td className="text-center">
-                            {Math.floor((item.duration_seconds || 0) / 60)}m
                           </td>
 
                           <td className="text-center">

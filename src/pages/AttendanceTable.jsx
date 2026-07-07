@@ -482,7 +482,6 @@ export default function AttendanceTable() {
                       <th className="text-center">Shift</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
-                      <th className="text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -528,23 +527,6 @@ export default function AttendanceTable() {
 
                           <td className="text-center">
                             {formatDateTime(l.check_out)}
-                          </td>
-
-                          <td className="text-center">
-                            <span
-                              className={`table-pill ${
-                                !l.check_in
-                                  ? "table-pill-danger"
-                                  : l.check_in && !l.check_out
-                                    ? "table-pill-success"
-                                    : "table-pill-neutral"
-                              }`}>
-                              {!l.check_in
-                                ? "Absent"
-                                : l.check_in && !l.check_out
-                                  ? "Working"
-                                  : "Finished"}
-                            </span>
                           </td>
                         </tr>
                       ))

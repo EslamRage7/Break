@@ -376,7 +376,6 @@ export default function BreaksTable() {
                       <th className="text-center">Duration</th>
                       <th className="text-center">Used</th>
                       <th className="text-center">Status</th>
-                      <th className="text-center">Paused</th>
                     </tr>
                   </thead>
 
@@ -430,7 +429,7 @@ export default function BreaksTable() {
                             <span
                               className={`table-pill ${
                                 item.is_paused
-                                  ? "table-pill-neutral"
+                                  ? "table-pill-warning"
                                   : (item.status || "").toLowerCase() ===
                                       "active"
                                     ? "table-pill-success"
@@ -438,22 +437,6 @@ export default function BreaksTable() {
                               }`}>
                               {getStatusLabel(item)}
                             </span>
-                          </td>
-                          <td className="paused-cell text-center">
-                            <span
-                              className={`table-pill ${
-                                item.is_paused
-                                  ? "table-pill-warning"
-                                  : "table-pill-success"
-                              }`}>
-                              {item.is_paused ? "Yes" : "No"}
-                            </span>
-
-                            {item.is_paused && (
-                              <small className="paused-date">
-                                {formatDateTime(item.paused_at)}
-                              </small>
-                            )}
                           </td>
                         </tr>
                       ))

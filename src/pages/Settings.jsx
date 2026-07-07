@@ -14,6 +14,7 @@ export default function Settings() {
   const [lastName, setLastName] = useState("");
   const [department, setDepartment] = useState("");
   const [gender, setGender] = useState("");
+  const [role, setRole] = useState("");
   const [shift, setShift] = useState("");
   const [shifts, setShifts] = useState([]);
   const [password, setPassword] = useState("");
@@ -36,6 +37,7 @@ export default function Settings() {
     lastName: "",
     department: "",
     gender: "",
+    shift: "",
   });
 
   const showMessage = (message, severity = "info") => {
@@ -69,7 +71,7 @@ export default function Settings() {
 
         const { data, error } = await supabase
           .from("employees")
-          .select("first_name,last_name,department,gender")
+          .select("first_name,last_name,department,gender,role")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -107,12 +109,14 @@ export default function Settings() {
         setLastName(data?.last_name || "");
         setDepartment(data?.department || "");
         setGender(genderString);
+        setRole(data?.role || "");
 
         setOriginalData({
           firstName: data?.first_name || "",
           lastName: data?.last_name || "",
           department: data?.department || "",
           gender: genderString,
+          shift: employeeShiftRow?.shift_id || "",
         });
       } catch (err) {
         console.error(err);
@@ -142,9 +146,10 @@ export default function Settings() {
       department !== originalData.department ||
       gender !== originalData.gender;
 
+    const shiftChanged = shift !== originalData.shift;
     const passwordChanged = password.trim() !== "";
 
-    if (!profileChanged && !passwordChanged) {
+    if (!profileChanged && !shiftChanged && !passwordChanged) {
       showMessage("No changes detected", "info");
       return;
     }
@@ -166,6 +171,41 @@ export default function Settings() {
         if (profileError) throw profileError;
       }
 
+      if (shiftChanged) {
+        const { data: existingShiftRow, error: existingShiftError } =
+          await supabase
+            .from("employee_shifts")
+            .select("id")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+        if (existingShiftError) throw existingShiftError;
+
+        if (shift) {
+          if (existingShiftRow?.id) {
+            const { error: updateShiftError } = await supabase
+              .from("employee_shifts")
+              .update({ shift_id: shift })
+              .eq("id", existingShiftRow.id);
+
+            if (updateShiftError) throw updateShiftError;
+          } else {
+            const { error: insertShiftError } = await supabase
+              .from("employee_shifts")
+              .insert({ user_id: userId, shift_id: shift });
+
+            if (insertShiftError) throw insertShiftError;
+          }
+        } else if (existingShiftRow?.id) {
+          const { error: deleteShiftError } = await supabase
+            .from("employee_shifts")
+            .delete()
+            .eq("id", existingShiftRow.id);
+
+          if (deleteShiftError) throw deleteShiftError;
+        }
+      }
+
       if (passwordChanged) {
         const { error: passwordError } = await supabase.auth.updateUser({
           password,
@@ -181,6 +221,7 @@ export default function Settings() {
         lastName: lastName.trim(),
         department,
         gender,
+        shift,
       });
 
       showMessage("Settings updated successfully", "success");
@@ -251,28 +292,59 @@ export default function Settings() {
             </div>
 
             <div className="form-row" style={{ marginBottom: "20px" }}>
-              <TextField
-                size="small"
-                label="Department"
-                value={department}
-                disabled
-                fullWidth
-                sx={textFieldStyle}
-              />
+              {role === "admin" ? (
+                <TextField
+                  size="small"
+                  label="Department"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  disabled={loading || saving}
+                  fullWidth
+                  sx={textFieldStyle}
+                />
+              ) : (
+                <TextField
+                  size="small"
+                  label="Department"
+                  value={department}
+                  disabled
+                  fullWidth
+                  sx={textFieldStyle}
+                />
+              )}
             </div>
 
             <div className="form-row" style={{ marginBottom: "20px" }}>
-              <TextField
-                size="small"
-                label="Shift"
-                value={
-                  shifts.find((item) => item.id === shift)?.shift_name ||
-                  "No Shift Assigned"
-                }
-                fullWidth
-                disabled
-                sx={textFieldStyle}
-              />
+              {role === "admin" || role === "team_leader" ? (
+                <TextField
+                  size="small"
+                  select
+                  label="Shift"
+                  value={shift}
+                  onChange={(e) => setShift(e.target.value)}
+                  disabled={loading || saving}
+                  fullWidth
+                  sx={textFieldStyle}>
+                  <MenuItem value="">No Shift Assigned</MenuItem>
+                  {shifts.map((item) => (
+                    <MenuItem key={item.id} value={item.id}>
+                      {item.shift_name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              ) : (
+                <TextField
+                  size="small"
+                  label="Shift"
+                  value={
+                    shifts.find((item) => item.id === shift)?.shift_name ||
+                    "No Shift Assigned"
+                  }
+                  fullWidth
+                  disabled
+                  sx={textFieldStyle}
+                />
+              )}
             </div>
 
             <TextField

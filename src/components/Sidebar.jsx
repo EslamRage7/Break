@@ -231,11 +231,8 @@ export default function Sidebar() {
     <BadgeRoundedIcon fontSize="small" />
   );
 
-  const breaksIcon = isAdmin ? (
-    <CoffeeRoundedIcon fontSize="small" />
-  ) : (
-    <AccessTimeRoundedIcon fontSize="small" />
-  );
+  const breaksIcon = <CoffeeRoundedIcon fontSize="small" />;
+
   return (
     <>
       <button

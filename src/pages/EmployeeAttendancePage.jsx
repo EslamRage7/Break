@@ -59,10 +59,23 @@ const formatWorkDuration = (minutes) => {
 
   const hours = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
+  const regularHours = Math.min(hours, 8);
+  const regularMinutes = regularHours === 8 ? 0 : 0;
+  const overtimeHours = Math.max(0, hours - 8);
+  const overtimeMinutes = mins;
 
-  if (hours && mins) return `${hours}h ${mins}m`;
-  if (hours) return `${hours}h`;
-  return `${mins}m`;
+  if (hours <= 8) {
+    if (hours && mins) return `${hours}h ${mins}m`;
+    if (hours) return `${hours}h`;
+    return `${mins}m`;
+  }
+
+  const overtimeText =
+    overtimeHours || overtimeMinutes
+      ? `${overtimeHours}h${overtimeMinutes ? ` ${overtimeMinutes}m` : ""} overtime`
+      : "overtime";
+
+  return `${regularHours}h${regularMinutes ? ` ${regularMinutes}m` : ""} + ${overtimeText}`;
 };
 
 const formatMinutes = (minutes) => {
@@ -260,12 +273,8 @@ export default function EmployeeAttendancePage() {
                       <th className="text-center">Shift</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
-                      <th className="text-center">Early Arrival</th>
+
                       <th className="text-center">Worked Hours</th>
-                      <th className="text-center">Late Arrival</th>
-                      <th className="text-center">Early Leave</th>
-                      <th className="text-center">Overtime</th>
-                      <th className="text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -290,36 +299,48 @@ export default function EmployeeAttendancePage() {
                           <td className="text-center">
                             {formatDateTime(log.check_out)}
                           </td>
-                          <td className="text-center">
-                            {formatMinutes(log.early_minutes)}
-                          </td>
 
                           <td className="text-center">
-                            {formatWorkDuration(log.work_minutes)}
-                          </td>
+                            {(() => {
+                              const value = formatWorkDuration(
+                                log.work_minutes,
+                              );
+                              const isOvertime =
+                                Number(log.work_minutes || 0) > 480;
 
-                          <td className="text-center">
-                            {formatMinutes(log.late_minutes)}
-                          </td>
-                          <td className="text-center">
-                            {formatWorkDuration(log.early_arrival_minutes)}
-                          </td>
-                          <td className="text-center">
-                            {formatMinutes(log.overtime_minutes)}
-                          </td>
-                          <td className="text-center">
-                            <span
-                              className={`table-pill ${
-                                log.status === "Absent"
-                                  ? "table-pill-danger"
-                                  : log.status === "Working"
-                                    ? "table-pill-success"
-                                    : log.status === "Late"
-                                      ? "table-pill-warning"
-                                      : "table-pill-neutral"
-                              }`}>
-                              {log.status || "-"}
-                            </span>
+                              return (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 6,
+                                    padding: "6px 10px",
+                                    borderRadius: 999,
+                                    background: isOvertime
+                                      ? "rgba(249, 115, 22, 0.12)"
+                                      : "rgba(16, 185, 129, 0.12)",
+                                    color: isOvertime ? "#c2410c" : "#047857",
+                                    fontWeight: 700,
+                                    border: isOvertime
+                                      ? "1px solid rgba(249, 115, 22, 0.3)"
+                                      : "1px solid rgba(16, 185, 129, 0.25)",
+                                  }}>
+                                  {value}
+                                  {isOvertime && (
+                                    <span
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        letterSpacing: 0.6,
+                                        textTransform: "uppercase",
+                                      }}>
+                                      OT
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))

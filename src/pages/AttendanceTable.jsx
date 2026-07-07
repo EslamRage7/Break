@@ -226,7 +226,13 @@ export default function AttendanceTable() {
   }, [employees]);
 
   const filteredLogs = useMemo(() => {
+    const seenUsers = new Set();
+
     return (logs || []).filter((log) => {
+      if (seenUsers.has(log.user_id)) {
+        return false;
+      }
+
       const employee = employeeLookup[log.user_id];
 
       if (nameQuery && employee?.user_id !== nameQuery) {
@@ -250,6 +256,7 @@ export default function AttendanceTable() {
         }
       }
 
+      seenUsers.add(log.user_id);
       return true;
     });
   }, [logs, employeeLookup, nameQuery, departmentQuery, roleQuery, dateQuery]);

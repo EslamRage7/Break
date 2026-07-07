@@ -291,8 +291,9 @@ export default function EmployeeAttendancePage() {
                             {formatDateTime(log.check_out)}
                           </td>
                           <td className="text-center">
-                            {formatWorkDuration(log.early_arrival_minutes)}
+                            {formatMinutes(log.early_minutes)}
                           </td>
+
                           <td className="text-center">
                             {formatWorkDuration(log.work_minutes)}
                           </td>
@@ -301,7 +302,7 @@ export default function EmployeeAttendancePage() {
                             {formatMinutes(log.late_minutes)}
                           </td>
                           <td className="text-center">
-                            {formatMinutes(log.early_minutes)}
+                            {formatWorkDuration(log.early_arrival_minutes)}
                           </td>
                           <td className="text-center">
                             {formatMinutes(log.overtime_minutes)}

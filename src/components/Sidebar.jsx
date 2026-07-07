@@ -7,6 +7,7 @@ import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
+import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
 import { NavLink, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { supabase } from "../supabaseClient";
@@ -245,7 +246,7 @@ export default function Sidebar() {
                 to="/table"
                 className={navLinkClass}
                 onClick={closeSidebar}>
-                <TableChartRoundedIcon fontSize="small" />
+                <BadgeRoundedIcon fontSize="small" />
                 <span>
                   {isAdmin
                     ? "Employees"

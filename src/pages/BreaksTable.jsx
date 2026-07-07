@@ -213,6 +213,18 @@ export default function BreaksTable() {
     });
   }, [breaks, nameQuery, dayQuery, statusQuery]);
 
+  const latestBreaks = useMemo(() => {
+    const seen = new Set();
+    return (filteredBreaks || [])
+      .slice()
+      .sort((a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0))
+      .filter((item) => {
+        if (seen.has(item.user_id)) return false;
+        seen.add(item.user_id);
+        return true;
+      });
+  }, [filteredBreaks]);
+
   const employeesInBreaks = useMemo(() => {
     const ids = new Set((breaks || []).map((b) => b.user_id));
     return (employees || [])
@@ -369,7 +381,7 @@ export default function BreaksTable() {
                   </thead>
 
                   <tbody>
-                    {filteredBreaks.length === 0 ? (
+                    {latestBreaks.length === 0 ? (
                       <tr>
                         <td
                           colSpan={8}
@@ -378,7 +390,7 @@ export default function BreaksTable() {
                         </td>
                       </tr>
                     ) : (
-                      filteredBreaks.map((item, index) => (
+                      latestBreaks.map((item, index) => (
                         <tr key={item.id}>
                           <td>
                             <strong>{index + 1}</strong>

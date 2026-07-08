@@ -59,6 +59,32 @@ export default function Settings() {
     GD: "Graphic Design",
     DE: "Data Entry",
     DV: "Development",
+    MG: "Management",
+  };
+
+  const getDepartmentLabel = (value) => {
+    const text = `${value || ""}`.trim();
+    if (!text) return "";
+
+    const normalizedText = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+    const directMatch = Object.entries(departmentNames).find(([key]) => {
+      return key.toLowerCase() === normalizedText;
+    });
+
+    if (directMatch) {
+      return directMatch[1];
+    }
+
+    const labelMatch = Object.entries(departmentNames).find(([, label]) => {
+      const normalizedLabel = `${label || ""}`
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+      return normalizedLabel === normalizedText;
+    });
+
+    return labelMatch ? labelMatch[1] : text;
   };
 
   const departmentOptions = Object.entries(departmentNames).map(
@@ -356,7 +382,7 @@ export default function Settings() {
                 <TextField
                   size="small"
                   label="Department"
-                  value={departmentNames[department] || department || ""}
+                  value={getDepartmentLabel(department)}
                   disabled
                   fullWidth
                   sx={textFieldStyle}

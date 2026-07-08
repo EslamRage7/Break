@@ -308,6 +308,11 @@ export default function EmployeeAttendancePage() {
                               const isOvertime =
                                 Number(log.work_minutes || 0) > 480;
 
+                              // If no meaningful value (formatted as "-"), render plain dash without colors
+                              if (value === "-") {
+                                return <span>-</span>;
+                              }
+
                               return (
                                 <span
                                   style={{

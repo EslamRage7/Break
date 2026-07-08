@@ -54,6 +54,49 @@ export default function Settings() {
     },
   };
 
+  const departmentNames = {
+    CS: "Call Center",
+    GD: "Graphic Design",
+    DE: "Data Entry",
+    DV: "Development",
+  };
+
+  const departmentOptions = Object.entries(departmentNames).map(
+    ([value, label]) => ({ value, label }),
+  );
+
+  const getDepartmentCode = (value) => {
+    const text = `${value || ""}`.trim();
+    if (!text) return "";
+
+    // direct key match (case-insensitive)
+    const keyMatch = Object.keys(departmentNames).find(
+      (k) => k.toLowerCase() === text.toLowerCase(),
+    );
+    if (keyMatch) return keyMatch;
+
+    // label match (case-insensitive)
+    const labelMatch = Object.entries(departmentNames).find(
+      ([, label]) =>
+        `${label || ""}`.trim().toLowerCase() === text.toLowerCase(),
+    );
+    if (labelMatch) return labelMatch[0];
+
+    // compact normalized match
+    const compact = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const compactMatch = Object.entries(departmentNames).find(([, label]) => {
+      const normLabel = `${label || ""}`
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+      return normLabel === compact || label?.toLowerCase() === compact;
+    });
+    if (compactMatch) return compactMatch[0];
+
+    // fallback to original value (useful for custom departments)
+    return text;
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
@@ -107,14 +150,14 @@ export default function Settings() {
 
         setFirstName(data?.first_name || "");
         setLastName(data?.last_name || "");
-        setDepartment(data?.department || "");
+        setDepartment(getDepartmentCode(data?.department) || "");
         setGender(genderString);
         setRole(data?.role || "");
 
         setOriginalData({
           firstName: data?.first_name || "",
           lastName: data?.last_name || "",
-          department: data?.department || "",
+          department: getDepartmentCode(data?.department) || "",
           gender: genderString,
           shift: employeeShiftRow?.shift_id || "",
         });
@@ -295,18 +338,25 @@ export default function Settings() {
               {role === "admin" ? (
                 <TextField
                   size="small"
+                  select
                   label="Department"
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   disabled={loading || saving}
                   fullWidth
-                  sx={textFieldStyle}
-                />
+                  sx={textFieldStyle}>
+                  <MenuItem value="">Select Department</MenuItem>
+                  {departmentOptions.map((item) => (
+                    <MenuItem key={item.value} value={item.value}>
+                      {item.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
               ) : (
                 <TextField
                   size="small"
                   label="Department"
-                  value={department}
+                  value={departmentNames[department] || department || ""}
                   disabled
                   fullWidth
                   sx={textFieldStyle}

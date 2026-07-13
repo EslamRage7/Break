@@ -33,19 +33,29 @@ Deno.serve(async (req) => {
     if (error || !attendance) {
       throw new Error("No active attendance found.");
     }
+
     const checkIn = new Date(attendance.check_in);
     const checkOut = new Date();
-
-    const workMinutes = Math.floor(
-      (checkOut.getTime() - checkIn.getTime()) / 60000,
-    );
 
     const shiftStart = new Date(attendance.shift_start);
     const shiftEnd = new Date(attendance.shift_end);
 
+    // لو الشيفت بينتهي اليوم التالي
     if (shiftEnd <= shiftStart) {
       shiftEnd.setDate(shiftEnd.getDate() + 1);
     }
+
+    // بداية العمل = الأكبر بين وقت الحضور وبداية الشيفت
+    const workStart = checkIn > shiftStart ? checkIn : shiftStart;
+
+    // نهاية العمل = الأصغر بين وقت الانصراف ونهاية الشيفت
+    const regularWorkEnd = checkOut < shiftEnd ? checkOut : shiftEnd;
+
+    // ساعات العمل العادية فقط
+    const workMinutes = Math.max(
+      0,
+      Math.floor((regularWorkEnd.getTime() - workStart.getTime()) / 60000),
+    );
     let lateMinutes = 0;
     let earlyMinutes = 0;
     let overtimeMinutes = 0;
@@ -89,7 +99,6 @@ Deno.serve(async (req) => {
         check_out: checkOut.toISOString(),
         work_minutes: workMinutes,
         late_minutes: lateMinutes,
-        early_minutes: earlyMinutes,
         overtime_minutes: overtimeMinutes,
         status,
       })

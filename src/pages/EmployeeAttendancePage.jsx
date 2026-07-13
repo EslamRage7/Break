@@ -52,32 +52,44 @@ const formatDateOnly = (value) => {
   return text;
 };
 
-const formatWorkDuration = (minutes) => {
-  const totalMinutes = Number(minutes) || 0;
+const formatWorkDuration = (workMinutes, overtimeMinutes) => {
+  const work = Number(workMinutes) || 0;
+  const overtime = Number(overtimeMinutes) || 0;
 
-  if (!totalMinutes) return "-";
+  if (!work) return "-";
 
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  const regularHours = Math.min(hours, 8);
-  const regularMinutes = regularHours === 8 ? 0 : 0;
-  const overtimeHours = Math.max(0, hours - 8);
-  const overtimeMinutes = mins;
+  const workHours = Math.floor(work / 60);
+  const workMins = work % 60;
 
-  if (hours <= 8) {
-    if (hours && mins) return `${hours}h ${mins}m`;
-    if (hours) return `${hours}h`;
-    return `${mins}m`;
+  let result = "";
+
+  if (workHours && workMins) {
+    result = `${workHours}h ${workMins}m`;
+  } else if (workHours) {
+    result = `${workHours}h`;
+  } else {
+    result = `${workMins}m`;
   }
 
-  const overtimeText =
-    overtimeHours || overtimeMinutes
-      ? `${overtimeHours}h${overtimeMinutes ? ` ${overtimeMinutes}m` : ""} `
-      : "overtime";
+  if (overtime > 0) {
+    const otHours = Math.floor(overtime / 60);
+    const otMins = overtime % 60;
 
-  return `${regularHours}h${regularMinutes ? ` ${regularMinutes}m` : ""} + ${overtimeText}`;
+    let otText = "";
+
+    if (otHours && otMins) {
+      otText = `${otHours}h ${otMins}m`;
+    } else if (otHours) {
+      otText = `${otHours}h`;
+    } else {
+      otText = `${otMins}m`;
+    }
+
+    result += ` + ${otText}`;
+  }
+
+  return result;
 };
-
 const formatMinutes = (minutes) => {
   const totalMinutes = Number(minutes) || 0;
 
@@ -301,51 +313,48 @@ export default function EmployeeAttendancePage() {
                           </td>
 
                           <td className="text-center">
-                            {(() => {
-                              const value = formatWorkDuration(
-                                log.work_minutes,
-                              );
-                              const isOvertime =
-                                Number(log.work_minutes || 0) > 480;
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                gap: "6px",
+                                flexWrap: "wrap",
+                              }}>
+                              {(() => {
+                                const earlyArrival =
+                                  Number(
+                                    log.early_minutes ??
+                                      log.early_arrival_minutes,
+                                  ) || 0;
+                                if (earlyArrival <= 0) return null;
+                              })()}
 
-                              // If no meaningful value (formatted as "-"), render plain dash without colors
-                              if (value === "-") {
-                                return <span>-</span>;
-                              }
+                              <span
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 999,
+                                  background: "#10b9811f",
+                                  color: "#047857",
+                                  fontWeight: 700,
+                                  border: "1px solid #10b98140",
+                                }}>
+                                {formatMinutes(log.work_minutes)}
+                              </span>
 
-                              return (
+                              {Number(log.overtime_minutes) > 0 && (
                                 <span
                                   style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 6,
                                     padding: "6px 10px",
                                     borderRadius: 999,
-                                    background: isOvertime
-                                      ? "#f974151f"
-                                      : "#10b9811f",
-                                    color: isOvertime ? "#c2410c" : "#047857",
+                                    background: "#f973161f",
+                                    color: "#c2410c",
                                     fontWeight: 700,
-                                    border: isOvertime
-                                      ? "1px solid #f973164d"
-                                      : "1px solid #10b98140",
+                                    border: "1px solid #f9731655",
                                   }}>
-                                  {value}
-                                  {isOvertime && (
-                                    <span
-                                      style={{
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        letterSpacing: 0.6,
-                                        textTransform: "uppercase",
-                                      }}>
-                                      OT
-                                    </span>
-                                  )}
+                                  OT {formatMinutes(log.overtime_minutes)}
                                 </span>
-                              );
-                            })()}
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))

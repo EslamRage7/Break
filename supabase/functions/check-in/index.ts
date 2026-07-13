@@ -88,12 +88,28 @@ Deno.serve(async (req) => {
     }
 
     // تحقق إذا تم تسجيل حضور لنفس اليوم
-    const { data: todayAttendance } = await supabase
+    const { data: activeAttendance } = await supabase
       .from("attendance")
       .select("id")
       .eq("user_id", user_id)
-      .eq("attendance_date", attendanceDate)
+      .is("check_out", null)
       .maybeSingle();
+
+    if (activeAttendance) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "You already have an active attendance.",
+        }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
 
     if (todayAttendance) {
       return new Response(
@@ -131,7 +147,7 @@ Deno.serve(async (req) => {
 
         check_in: now.toISOString(),
 
-        early_minutes: earlyArrivalMinutes,
+        early_arrival_minutes: earlyArrivalMinutes,
         late_minutes: lateMinutes,
 
         status: "Working",

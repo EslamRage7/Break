@@ -329,17 +329,21 @@ export default function EmployeeAttendancePage() {
                                 if (earlyArrival <= 0) return null;
                               })()}
 
-                              <span
-                                style={{
-                                  padding: "6px 10px",
-                                  borderRadius: 999,
-                                  background: "#10b9811f",
-                                  color: "#047857",
-                                  fontWeight: 700,
-                                  border: "1px solid #10b98140",
-                                }}>
-                                {formatMinutes(log.work_minutes)}
-                              </span>
+                              {Number(log.work_minutes) > 0 ? (
+                                <span
+                                  style={{
+                                    padding: "6px 10px",
+                                    borderRadius: 999,
+                                    background: "#10b9811f",
+                                    color: "#047857",
+                                    fontWeight: 700,
+                                    border: "1px solid #10b98140",
+                                  }}>
+                                  {formatMinutes(log.work_minutes)}
+                                </span>
+                              ) : (
+                                <span>-</span>
+                              )}
 
                               {Number(log.overtime_minutes) > 0 && (
                                 <span

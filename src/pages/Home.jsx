@@ -88,6 +88,8 @@ function Home() {
         return;
       }
 
+      const wasCheckedIn = isCheckedIn; // حفظ الحالة قبل العملية
+
       if (isCheckedIn) {
         const confirmResult = await Swal.fire({
           icon: "warning",
@@ -111,7 +113,9 @@ function Home() {
           user_id: user.id,
         },
       });
-
+      console.log("Invoke Result:", result);
+      console.log("Invoke Data:", result.data);
+      console.log("Invoke Error:", result.error);
       console.log("Function Result:", result);
 
       if (result.error) {
@@ -136,7 +140,7 @@ function Home() {
 
       Swal.fire({
         icon: "success",
-        title: isCheckedIn
+        title: wasCheckedIn
           ? "Checked Out Successfully"
           : "Checked In Successfully",
         timer: 1500,
@@ -146,7 +150,7 @@ function Home() {
       await checkAttendance();
       setBreakRefreshKey((p) => p + 1);
 
-      if (isCheckedIn) {
+      if (wasCheckedIn) {
         setShowCompletedMessage(true);
       }
     } catch (err) {

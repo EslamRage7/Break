@@ -200,6 +200,7 @@ export default function EmployeeAttendancePage() {
             "id,user_id,check_in,check_out,work_minutes,status,created_at,early_minutes,overtime_minutes,attendance_date,shift_name,early_arrival_minutes,late_minutes",
           )
           .eq("user_id", userId)
+          .not("check_out", "is", null)
           .order("created_at", { ascending: false });
 
         if (logsError) throw logsError;

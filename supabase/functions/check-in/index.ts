@@ -28,6 +28,8 @@ Deno.serve(async (req) => {
     }).format(now);
 
     const attendanceDate = cairoToday;
+    console.log("attendanceDate:", attendanceDate);
+    console.log("user_id:", user_id);
 
     // Get current shift or use a safe fallback when none is assigned
     const { data: shiftData, error: shiftError } = await supabase
@@ -94,7 +96,7 @@ Deno.serve(async (req) => {
       .eq("user_id", user_id)
       .is("check_out", null)
       .maybeSingle();
-
+    console.log("activeAttendance:", activeAttendance);
     if (activeAttendance) {
       return new Response(
         JSON.stringify({
@@ -110,7 +112,15 @@ Deno.serve(async (req) => {
         },
       );
     }
+    const { data: todayAttendance, error: todayAttendanceError } =
+      await supabase
+        .from("attendance")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("attendance_date", attendanceDate)
+        .maybeSingle();
 
+    if (todayAttendanceError) throw todayAttendanceError;
     if (todayAttendance) {
       return new Response(
         JSON.stringify({

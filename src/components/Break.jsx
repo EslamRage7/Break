@@ -38,7 +38,10 @@ const getElapsedSeconds = (session, now = Date.now()) => {
   const startedAt = new Date(session.start_time).getTime();
   if (Number.isNaN(startedAt)) return Number(session.used_seconds || 0);
 
-  return Math.max(0, Math.floor((now - startedAt) / 1000));
+  return Math.max(
+    0,
+    Number(session.used_seconds || 0) + Math.floor((now - startedAt) / 1000),
+  );
 };
 
 const getRemainingSeconds = (session, now = Date.now()) => {
@@ -473,8 +476,7 @@ export default function Break({
     const used = await loadTodayUsage(user.id);
     if (used >= BREAK_LIMIT) return;
 
-    const elapsedSeconds = session.used_seconds || 0;
-    const newStart = new Date(Date.now() - elapsedSeconds * 1000).toISOString();
+    const newStart = new Date().toISOString();
 
     await supabase
       .from("break_sessions")

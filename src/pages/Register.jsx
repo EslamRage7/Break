@@ -234,6 +234,7 @@ export default function Register() {
                   label="Email"
                   type="email"
                   value={email}
+                  helperText="This email cannot be changed after registration."
                   onChange={(e) => setEmail(e.target.value)}
                   fullWidth
                   sx={{

@@ -1,56 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 
-const BREAK_LIMIT = 45;
-const BREAK_DURATION_SECONDS = BREAK_LIMIT * 60;
+const BREAK_LIMIT = 45; // minutes
 
 const formatTime = (minutesLeft, secondsLeft) => {
   return `${String(minutesLeft).padStart(2, "0")}:${String(
     secondsLeft,
   ).padStart(2, "0")}`;
-};
-
-const getTodayKey = () =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Cairo",
-  }).format(new Date());
-
-const isWithinToday = (value) => {
-  if (!value) return false;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-
-  const sessionDay = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Cairo",
-  }).format(date);
-
-  return sessionDay === getTodayKey();
-};
-
-const getElapsedSeconds = (session, now = Date.now()) => {
-  if (!session) return 0;
-
-  if (session.status === "completed" || session.is_paused) {
-    return Number(session.used_seconds || 0);
-  }
-
-  const startedAt = new Date(session.start_time).getTime();
-  if (Number.isNaN(startedAt)) return Number(session.used_seconds || 0);
-
-  return Math.max(
-    0,
-    Number(session.used_seconds || 0) + Math.floor((now - startedAt) / 1000),
-  );
-};
-
-const getRemainingSeconds = (session, now = Date.now()) => {
-  if (!session) return 0;
-
-  const duration = Number(session.duration_seconds || BREAK_DURATION_SECONDS);
-  const elapsed = getElapsedSeconds(session, now);
-
-  return Math.max(0, duration - elapsed);
 };
 
 export default function Break({
@@ -59,18 +15,57 @@ export default function Break({
 }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
-  const [minutes, setMinutes] = useState(BREAK_LIMIT);
+  const [minutes, setMinutes] = useState(45);
   const [seconds, setSeconds] = useState(0);
 
   const [running, setRunning] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
+
   const [usedToday, setUsedToday] = useState(0);
   const [remainingBreak, setRemainingBreak] = useState(BREAK_LIMIT);
   const isPaused = session?.is_paused;
+  const intervalRef = useRef(null);
+  const syncCounterRef = useRef(0);
   const dayKeyRef = useRef("");
 
-  const totalDurationSeconds = BREAK_DURATION_SECONDS;
+  const getTodayKey = () =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+    }).format(new Date());
+
+  const isWithinToday = (value) => {
+    if (!value) return false;
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+
+    const sessionDay = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+    }).format(date);
+
+    return sessionDay === getTodayKey();
+  };
+
+  const totalDurationSeconds = BREAK_LIMIT * 60;
+  const getSessionElapsedSeconds = useCallback((item) => {
+    if (!item) return 0;
+
+    const sessionLimit = Number(item.duration_seconds) || totalDurationSeconds;
+    const baseSeconds = Math.max(0, Number(item.used_seconds) || 0);
+    if (item.is_paused || !item.start_time) {
+      return Math.min(baseSeconds, sessionLimit);
+    }
+
+    const sinceStartSeconds = Math.floor(
+      (Date.now() - new Date(item.start_time).getTime()) / 1000,
+    );
+
+    return Math.min(
+      sessionLimit,
+      Math.max(0, baseSeconds + (Number.isFinite(sinceStartSeconds) ? sinceStartSeconds : 0)),
+    );
+  }, [totalDurationSeconds]);
   const showFinishedState =
     isFinished || (!running && minutes === 0 && seconds === 0 && !session);
   const progressPercent = showFinishedState
@@ -79,21 +74,20 @@ export default function Break({
         100,
         Math.max(0, ((minutes * 60 + seconds) / totalDurationSeconds) * 100),
       );
-
   useEffect(() => {
     const loadUser = async () => {
       const {
-        data: { user: authUser },
+        data: { user },
       } = await supabase.auth.getUser();
 
-      setUser(authUser);
+      setUser(user);
     };
 
-    void loadUser();
+    loadUser();
   }, []);
 
   const loadTodayUsage = useCallback(async (userId) => {
-    if (!userId) return 0;
+    const today = getTodayKey();
 
     const { data } = await supabase
       .from("break_sessions")
@@ -104,27 +98,27 @@ export default function Break({
     const todaysSessions = (data || []).filter((item) =>
       isWithinToday(item.start_time),
     );
-
     let totalSeconds = 0;
 
     todaysSessions.forEach((item) => {
       if (item.status === "completed") {
-        totalSeconds += Number(item.used_seconds || 0);
+        totalSeconds += Math.max(0, Number(item.used_seconds) || 0);
         return;
       }
 
       if (item.is_paused) {
-        totalSeconds += Number(item.used_seconds || 0);
+        totalSeconds += Math.max(0, Number(item.used_seconds) || 0);
         return;
       }
 
-      const elapsed = getElapsedSeconds(item);
-      totalSeconds += Math.min(
-        elapsed,
-        Number(item.duration_seconds || BREAK_DURATION_SECONDS),
-      );
+      const elapsed = getSessionElapsedSeconds(item);
+
+      totalSeconds += elapsed;
     });
 
+    // The daily allowance is 45 minutes, even if old data contains an
+    // incorrectly large duration.
+    totalSeconds = Math.min(totalSeconds, totalDurationSeconds);
     const totalMinutes = Math.floor(totalSeconds / 60);
     const reachedLimit = totalMinutes >= BREAK_LIMIT;
 
@@ -133,28 +127,26 @@ export default function Break({
     setIsDisabled(reachedLimit);
 
     return totalMinutes;
-  }, []);
+  }, [getSessionElapsedSeconds, totalDurationSeconds]);
 
-  const completeSession = useCallback(async (sessionId) => {
-    if (!sessionId) return;
-
+  const completeSession = async (sessionId) => {
     try {
       await supabase
         .from("break_sessions")
         .update({
           status: "completed",
-          used_seconds: BREAK_DURATION_SECONDS,
-          used_minutes: BREAK_LIMIT,
+          used_seconds: 2700,
+          used_minutes: 45,
           end_time: new Date().toISOString(),
         })
         .eq("id", sessionId);
     } catch (err) {
       console.error("Failed to complete session", err);
     }
-  }, []);
+  };
 
   const loadLastSession = useCallback(async (userId) => {
-    if (!userId) return null;
+    const today = getTodayKey();
 
     const { data } = await supabase
       .from("break_sessions")
@@ -166,9 +158,90 @@ export default function Break({
       isWithinToday(item.start_time),
     );
 
+    // لو فيه Active رجعه
+    const activeSession = todaysSessions.find((s) => s.status === "active");
+
+    if (activeSession) return activeSession;
+
+    // غير كده رجع آخر Session
     return todaysSessions[0] || null;
   }, []);
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const interval = setInterval(async () => {
+      const last = await loadLastSession(user.id);
+
+      if (!last || last.status === "completed") return;
+
+      const elapsed = getSessionElapsedSeconds(last);
+
+      const remaining = Math.max(last.duration_seconds - elapsed, 0);
+
+      setMinutes(Math.floor(remaining / 60));
+      setSeconds(remaining % 60);
+
+      setSession(last);
+      setRunning(!last.is_paused);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user?.id, loadLastSession]);
+  useEffect(() => {
+    if (!user) return;
+
+    const init = async () => {
+      const last = await loadLastSession(user.id);
+
+      await loadTodayUsage(user.id);
+
+      if (!last) {
+        setIsFinished(false);
+        setIsDisabled(false);
+        return;
+      }
+
+      if (last.status === "completed" || last.used_seconds >= 2700) {
+        if (last.status !== "completed") {
+          await completeSession(last.id);
+        }
+
+        setSession(null);
+        setRunning(false);
+        setIsFinished(true);
+        setIsDisabled(true);
+
+        setMinutes(0);
+        setSeconds(0);
+        setRemainingBreak(0);
+
+        return;
+      }
+      const elapsed = getSessionElapsedSeconds(last);
+
+      const remaining = Math.max(last.duration_seconds - elapsed, 0);
+
+      if (remaining <= 0) {
+        await completeSession(last.id);
+        setSession(null);
+        setRunning(false);
+        setIsFinished(false);
+        setIsDisabled(false);
+        setMinutes(BREAK_LIMIT);
+        setSeconds(0);
+        return;
+      }
+
+      setSession(last);
+      setMinutes(Math.floor(remaining / 60));
+      setSeconds(remaining % 60);
+
+      setRunning(!last.is_paused);
+    };
+
+    init();
+  }, [user, loadLastSession, loadTodayUsage]);
   const resetForNewDay = useCallback(() => {
     setSession(null);
     setRunning(false);
@@ -190,10 +263,7 @@ export default function Break({
 
       const resolvedUsedSeconds = Math.max(
         0,
-        Math.min(
-          BREAK_DURATION_SECONDS,
-          usedSecondsValue ?? BREAK_DURATION_SECONDS,
-        ),
+        Math.min(2700, usedSecondsValue ?? 2700 - (minutes * 60 + seconds)),
       );
 
       try {
@@ -210,23 +280,44 @@ export default function Break({
         console.error("Failed to finalize break session", err);
       }
     },
-    [],
+    [minutes, seconds],
+  );
+
+  const finalizeActiveBreakSegment = useCallback(
+    async (
+      sessionId,
+      endTime = new Date().toISOString(),
+      usedSecondsValue = null,
+    ) => {
+      if (!sessionId) return;
+
+      const resolvedUsedSeconds = Math.max(
+        0,
+        Math.min(2700, usedSecondsValue ?? 2700 - (minutes * 60 + seconds)),
+      );
+
+      try {
+        await supabase
+          .from("break_segments")
+          .update({
+            end_time: endTime,
+            duration_seconds: Math.max(
+              0,
+              resolvedUsedSeconds - (session?.used_seconds || 0),
+            ),
+          })
+          .eq("break_session_id", sessionId)
+          .is("end_time", null);
+      } catch (err) {
+        console.error("Failed to finalize break segment", err);
+      }
+    },
+    [minutes, seconds, session],
   );
 
   const completeBreakFlow = useCallback(
-    async (
-      sessionId = null,
-      activeSession = session,
-      usedSecondsValue = null,
-    ) => {
-      const resolvedSessionId = sessionId ?? activeSession?.id;
-      const resolvedUsedSeconds = Math.max(
-        0,
-        Math.min(
-          Number(activeSession?.duration_seconds || BREAK_DURATION_SECONDS),
-          usedSecondsValue ?? getElapsedSeconds(activeSession),
-        ),
-      );
+    async (sessionId = null) => {
+      const resolvedSessionId = sessionId ?? session?.id;
 
       setRunning(false);
       setIsFinished(true);
@@ -236,182 +327,47 @@ export default function Break({
       setRemainingBreak(0);
       setSession(null);
 
-      if (activeSession?.id && user?.id) {
-        await supabase.from("break_segments").insert({
-          break_session_id: resolvedSessionId,
-          user_id: user.id,
-          start_time: activeSession.start_time,
-          end_time: new Date().toISOString(),
-          duration_seconds: Math.max(
-            0,
-            resolvedUsedSeconds - (activeSession.used_seconds || 0),
-          ),
-        });
-      }
-
       if (resolvedSessionId) {
-        await finalizeBreakSession(
-          resolvedSessionId,
-          new Date().toISOString(),
-          resolvedUsedSeconds,
-        );
-      }
-
-      if (user?.id) {
-        await loadTodayUsage(user.id);
+        await finalizeBreakSession(resolvedSessionId);
+        await finalizeActiveBreakSegment(resolvedSessionId);
       }
     },
-    [finalizeBreakSession, loadTodayUsage, session, user?.id],
+    [finalizeBreakSession, finalizeActiveBreakSegment, session?.id],
   );
 
-  useEffect(() => {
-    if (!user?.id) return;
-
-    let isActive = true;
-
-    const updateTimer = async () => {
-      const latest = await loadLastSession(user.id);
-      if (!isActive) return;
-
-      if (!latest || latest.status === "completed") {
-        return;
-      }
-
-      const remaining = getRemainingSeconds(latest);
-
-      if (remaining <= 0) {
-        await completeBreakFlow(
-          latest.id,
-          latest,
-          latest.duration_seconds || BREAK_DURATION_SECONDS,
-        );
-        return;
-      }
-
-      setSession(latest);
-      setRunning(!latest.is_paused);
-      setMinutes(Math.floor(remaining / 60));
-      setSeconds(remaining % 60);
-    };
-
-    void updateTimer();
-    const interval = window.setInterval(() => {
-      void updateTimer();
-    }, 1000);
-
-    return () => {
-      isActive = false;
-      window.clearInterval(interval);
-    };
-  }, [completeBreakFlow, loadLastSession, user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const init = async () => {
-      const latest = await loadLastSession(user.id);
-      await loadTodayUsage(user.id);
-
-      if (!latest) {
-        setIsFinished(false);
-        setIsDisabled(false);
-        setMinutes(BREAK_LIMIT);
-        setSeconds(0);
-        setSession(null);
-        return;
-      }
-
-      if (
-        latest.status === "completed" ||
-        (latest.used_seconds || 0) >=
-          (latest.duration_seconds || BREAK_DURATION_SECONDS)
-      ) {
-        if (latest.status !== "completed") {
-          await completeSession(latest.id);
-        }
-
-        setSession(null);
-        setRunning(false);
-        setIsFinished(true);
-        setIsDisabled(true);
-        setMinutes(0);
-        setSeconds(0);
-        return;
-      }
-
-      const remaining = getRemainingSeconds(latest);
-
-      if (remaining <= 0) {
-        await completeSession(latest.id);
-        setSession(null);
-        setRunning(false);
-        setIsFinished(false);
-        setIsDisabled(false);
-        setMinutes(BREAK_LIMIT);
-        setSeconds(0);
-        return;
-      }
-
-      setSession(latest);
-      setRunning(!latest.is_paused);
-      setMinutes(Math.floor(remaining / 60));
-      setSeconds(remaining % 60);
-      setIsFinished(false);
-      setIsDisabled(false);
-    };
-
-    void init();
-  }, [completeSession, loadLastSession, loadTodayUsage, user?.id]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      const currentDay = getTodayKey();
-
-      if (currentDay !== dayKeyRef.current) {
-        dayKeyRef.current = currentDay;
-        resetForNewDay();
-      }
-    }, 60000);
-
-    return () => window.clearInterval(interval);
-  }, [resetForNewDay]);
-
-  useEffect(() => {
-    const init = async () => {
-      await loadTodayUsage(user?.id);
-    };
-
-    if (user?.id) {
-      void init();
-    }
-  }, [loadTodayUsage, user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    if (attendanceCompletedToday) return;
-
-    void loadTodayUsage(user.id);
-  }, [attendanceCompletedToday, refreshKey, loadTodayUsage, user?.id]);
-
   const startBreak = async (force = false) => {
+    console.log("START CLICKED");
     if (!user) return;
-
     const todayUsage = await loadTodayUsage(user.id);
-    if (todayUsage >= BREAK_LIMIT && !force) {
+
+    if (todayUsage >= BREAK_LIMIT) {
       setIsDisabled(true);
       return;
     }
 
+    clearInterval(intervalRef.current);
     setIsFinished(false);
 
-    const { data, error } = await supabase
+    const used = await loadTodayUsage(user.id);
+
+    if (!force && used >= BREAK_LIMIT) {
+      setIsDisabled(true);
+      return;
+    }
+    const active = await loadLastSession(user.id);
+
+    if (active && active.status === "active") {
+      setSession(active);
+      return;
+    }
+    const { data } = await supabase
       .from("break_sessions")
       .insert([
         {
           user_id: user.id,
           start_time: new Date().toISOString(),
-          duration_seconds: BREAK_DURATION_SECONDS,
-          duration_minutes: BREAK_LIMIT,
+          duration_seconds: 2700,
+          duration_minutes: 45,
           used_seconds: 0,
           used_minutes: 0,
           status: "active",
@@ -420,35 +376,35 @@ export default function Break({
       ])
       .select()
       .single();
-
-    if (error) {
-      console.error("Failed to start break", error);
-      return;
-    }
-
+    console.log("NEW SESSION", data);
     setSession(data);
-    setRunning(true);
-    setMinutes(BREAK_LIMIT);
+    await supabase.from("break_segments").insert({
+      break_session_id: data.id,
+      user_id: user.id,
+      start_time: new Date().toISOString(),
+    });
+    setMinutes(45);
     setSeconds(0);
-    setIsDisabled(false);
+    setRunning(true);
+    console.log("New Break Session:", data);
     await loadTodayUsage(user.id);
   };
 
   const pauseBreak = async () => {
     if (!session || isDisabled) return;
 
-    const remainingSeconds = minutes * 60 + seconds;
-    const usedSeconds = Math.max(0, BREAK_DURATION_SECONDS - remainingSeconds);
-
+    clearInterval(intervalRef.current);
     setRunning(false);
 
-    await supabase.from("break_segments").insert({
-      break_session_id: session.id,
-      user_id: user.id,
-      start_time: session.start_time,
-      end_time: new Date().toISOString(),
-      duration_seconds: Math.max(0, usedSeconds - (session.used_seconds || 0)),
-    });
+    const usedSeconds = 2700 - (minutes * 60 + seconds);
+    await supabase
+      .from("break_segments")
+      .update({
+        end_time: new Date().toISOString(),
+        duration_seconds: usedSeconds - (session.used_seconds || 0),
+      })
+      .eq("break_session_id", session.id)
+      .is("end_time", null);
 
     await supabase
       .from("break_sessions")
@@ -459,14 +415,12 @@ export default function Break({
         used_minutes: Math.floor(usedSeconds / 60),
       })
       .eq("id", session.id);
-
     setSession((prev) => ({
       ...prev,
       is_paused: true,
       used_seconds: usedSeconds,
       used_minutes: Math.floor(usedSeconds / 60),
     }));
-
     await loadTodayUsage(user.id);
   };
 
@@ -474,6 +428,7 @@ export default function Break({
     if (!session) return;
 
     const used = await loadTodayUsage(user.id);
+
     if (used >= BREAK_LIMIT) return;
 
     const newStart = new Date().toISOString();
@@ -486,7 +441,11 @@ export default function Break({
         start_time: newStart,
       })
       .eq("id", session.id);
-
+    await supabase.from("break_segments").insert({
+      break_session_id: session.id,
+      user_id: user.id,
+      start_time: new Date().toISOString(),
+    });
     setSession((prev) => ({
       ...prev,
       is_paused: false,
@@ -494,12 +453,64 @@ export default function Break({
     }));
 
     setRunning(true);
+
     await loadTodayUsage(user.id);
   };
+  useEffect(() => {
+    if (!session) return;
+
+    const remaining = minutes * 60 + seconds;
+
+    if (remaining <= 0 && running && session.status !== "completed") {
+      const finalize = async () => {
+        clearInterval(intervalRef.current);
+        await completeBreakFlow(session.id);
+        await loadTodayUsage(user.id);
+      };
+
+      finalize();
+    }
+  }, [minutes, seconds, running, session, user, loadTodayUsage]);
 
   const finishBreak = async () => {
-    await completeBreakFlow(session?.id);
+    await completeBreakFlow(session.id);
+
+    if (user?.id) {
+      await loadTodayUsage(user.id);
+    }
   };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDay = getTodayKey();
+
+      if (currentDay !== dayKeyRef.current) {
+        dayKeyRef.current = currentDay;
+        resetForNewDay();
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [resetForNewDay]);
+
+  useEffect(() => {
+    const init = async () => {
+      dayKeyRef.current = getTodayKey();
+      await loadTodayUsage(user?.id);
+    };
+
+    if (user?.id) {
+      init();
+    }
+  }, [user?.id, loadTodayUsage]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    if (attendanceCompletedToday) return;
+
+    void loadTodayUsage(user.id);
+  }, [attendanceCompletedToday, refreshKey, user?.id, loadTodayUsage]);
 
   const shouldHideBreak = attendanceCompletedToday || (!user && !session);
 

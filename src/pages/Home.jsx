@@ -20,6 +20,7 @@ function Home() {
   const [breakRefreshKey, setBreakRefreshKey] = useState(0);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const dayKeyRef = useRef("");
+  const autoCheckoutTriggeredRef = useRef("");
 
   const getTodayKey = () =>
     new Intl.DateTimeFormat("en-CA", {
@@ -63,32 +64,43 @@ function Home() {
     }
 
     const latestAttendance = data?.[0] ?? null;
+    const hasOpenAttendance =
+      !!latestAttendance && latestAttendance.check_out === null;
 
-    setIsCheckedIn(!!latestAttendance && latestAttendance.check_out === null);
+    if (!hasOpenAttendance) {
+      autoCheckoutTriggeredRef.current = "";
+    }
 
+    setIsCheckedIn(hasOpenAttendance);
     setAttendanceCompletedToday(
       !!latestAttendance && latestAttendance.check_out !== null,
     );
   }, []);
 
-  const getAttendanceErrorMessage = async (errorPayload) => {
-    try {
-      if (!errorPayload?.context?.text) {
-        return errorPayload?.message || "Unable to complete attendance action.";
+  const performCheckout = useCallback(
+    async (userId, source = "user", checkoutTime = null) => {
+      const result = await supabase.functions.invoke("check-out", {
+        body: {
+          user_id: userId,
+          source,
+          checkout_time: checkoutTime,
+        },
+      });
+
+      if (result.error) {
+        const text = await result.error.context?.text?.();
+        throw new Error(text || result.error.message || "Checkout failed");
       }
 
-      const responseText = await errorPayload.context.text();
-      const parsed = JSON.parse(responseText);
+      const data = result.data;
+      if (!data?.success) {
+        throw new Error(data?.message || "Checkout failed");
+      }
 
-      return (
-        parsed?.message ||
-        parsed?.error ||
-        "Unable to complete attendance action."
-      );
-    } catch {
-      return errorPayload?.message || "Unable to complete attendance action.";
-    }
-  };
+      return data;
+    },
+    [],
+  );
 
   const handleAttendance = async () => {
     try {
@@ -127,30 +139,28 @@ function Home() {
 
       const functionName = isCheckedIn ? "check-out" : "check-in";
 
-      const result = await supabase.functions.invoke(functionName, {
-        body: {
-          user_id: user.id,
-        },
-      });
-      console.log("Invoke Result:", result);
-      console.log("Invoke Data:", result.data);
-      console.log("Invoke Error:", result.error);
-      console.log("Function Result:", result);
-
-      if (result.error) {
-        const backendMessage = await getAttendanceErrorMessage(result.error);
-        throw new Error(backendMessage);
-      }
-
-      const data = result.data;
-
-      if (!data.success) {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: data.message || "Unable to complete attendance action.",
+      if (isCheckedIn) {
+        await performCheckout(user.id, "user");
+      } else {
+        const result = await supabase.functions.invoke(functionName, {
+          body: {
+            user_id: user.id,
+          },
         });
-        return;
+
+        if (result.error) {
+          const text = await result.error.context?.text?.();
+          throw new Error(text || result.error.message || "Check-in failed");
+        }
+
+        if (!result.data?.success) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: result.data?.message,
+          });
+          return;
+        }
       }
 
       Swal.fire({
@@ -171,15 +181,10 @@ function Home() {
     } catch (err) {
       console.error(err);
 
-      const message =
-        err instanceof Error && err.message
-          ? err.message
-          : "Unable to complete attendance action.";
-
       Swal.fire({
-        icon: "error",
-        title: "Attendance Error",
-        text: message,
+        icon: "info",
+
+        text: "You have already checked in today",
       });
     } finally {
       setLoadingAttendance(false);
@@ -209,6 +214,72 @@ function Home() {
 
     return () => clearInterval(interval);
   }, [checkAttendance, resetCompletedMessageState]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const runAutoCheckout = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.id || !isCheckedIn || attendanceCompletedToday) return;
+
+      const { data: openAttendance, error } = await supabase
+        .from("attendance")
+        .select("id, shift_end")
+        .eq("user_id", user.id)
+        .is("check_out", null)
+        .order("check_in", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !openAttendance?.shift_end) return;
+
+      const shiftEnd = new Date(openAttendance.shift_end);
+      if (Number.isNaN(shiftEnd.getTime())) return;
+
+      const now = new Date();
+      const autoCheckoutThreshold = new Date(
+        shiftEnd.getTime() + 2 * 60 * 60 * 1000,
+      );
+
+      if (now < autoCheckoutThreshold) return;
+      if (autoCheckoutTriggeredRef.current === openAttendance.id) return;
+
+      autoCheckoutTriggeredRef.current = openAttendance.id;
+
+      try {
+        await performCheckout(user.id, "system", shiftEnd.toISOString());
+
+        if (!isMounted) return;
+
+        await checkAttendance();
+        setBreakRefreshKey((prev) => prev + 1);
+
+        Swal.fire({
+          icon: "info",
+          title: "Auto Check Out",
+          text: "Your shift ended and you were checked out automatically by the system.",
+          timer: 2500,
+          showConfirmButton: false,
+        });
+      } catch (err) {
+        console.error("Auto checkout failed", err);
+      }
+    };
+
+    const interval = setInterval(() => {
+      void runAutoCheckout();
+    }, 60000);
+
+    void runAutoCheckout();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [attendanceCompletedToday, checkAttendance, isCheckedIn, performCheckout]);
 
   useEffect(() => {
     if (!showCompletedMessage) return;

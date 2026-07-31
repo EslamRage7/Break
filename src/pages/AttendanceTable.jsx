@@ -161,8 +161,8 @@ export default function AttendanceTable() {
     `,
               { count: "exact" },
             )
+            .not("check_in", "is", null)
             .order("attendance_date", { ascending: false })
-            .order("check_in", { ascending: false })
             .order("created_at", { ascending: false });
 
           if (currentEmployee?.role === "team_leader") {
@@ -216,7 +216,7 @@ export default function AttendanceTable() {
     `,
             )
             .eq("user_id", user.id)
-            .order("check_in", { ascending: false })
+            .not("check_in", "is", null)
             .order("created_at", { ascending: false });
 
           if (error) throw error;
@@ -254,13 +254,25 @@ export default function AttendanceTable() {
   }, [employees]);
 
   const filteredLogs = useMemo(() => {
+    const baseLogs = logs || [];
+
     if (!canManageAttendance) {
-      return logs || [];
+      return baseLogs.filter((log) => {
+        if (!dateQuery) {
+          return true;
+        }
+
+        const logDate = new Date(log.attendance_date)
+          .toISOString()
+          .split("T")[0];
+
+        return logDate === dateQuery;
+      });
     }
 
     const seenUsers = new Set();
 
-    return (logs || []).filter((log) => {
+    return baseLogs.filter((log) => {
       if (seenUsers.has(log.user_id)) {
         return false;
       }
@@ -373,7 +385,7 @@ export default function AttendanceTable() {
           </div>
 
           {loading && (
-            <div className="admin-loading">
+            <div className="admin-loading text-center justify-content-center mb-3">
               <CircularProgress size={30} />
               <span>Loading attendance...</span>
             </div>
@@ -381,106 +393,110 @@ export default function AttendanceTable() {
 
           {!loading && (
             <div>
-              {canManageAttendance && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    flexWrap: "wrap",
-                    marginBottom: 16,
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginBottom: 16,
+                }}>
+                {canManageAttendance && (
+                  <>
+                    <FormControl size="small" style={{ minWidth: 220 }}>
+                      <InputLabel id="employee-filter-label">
+                        Employee
+                      </InputLabel>
+                      <Select
+                        labelId="employee-filter-label"
+                        label="Employee"
+                        value={nameQuery}
+                        onChange={(event) => setNameQuery(event.target.value)}>
+                        <MenuItem value="">All employees</MenuItem>
+                        {employeeOptions.map((employee) => (
+                          <MenuItem value={employee.value} key={employee.value}>
+                            {employee.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl size="small" style={{ minWidth: 180 }}>
+                      <InputLabel id="department-filter-label">
+                        Department
+                      </InputLabel>
+                      <Select
+                        labelId="department-filter-label"
+                        label="Department"
+                        value={departmentQuery}
+                        onChange={(event) =>
+                          setDepartmentQuery(event.target.value)
+                        }>
+                        <MenuItem value="">All departments</MenuItem>
+                        {departments.map((department) => (
+                          <MenuItem value={department} key={department}>
+                            {department}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl size="small" style={{ minWidth: 180 }}>
+                      <InputLabel id="role-filter-label">Role</InputLabel>
+                      <Select
+                        labelId="role-filter-label"
+                        label="Role"
+                        value={roleQuery}
+                        onChange={(event) => setRoleQuery(event.target.value)}>
+                        <MenuItem value="">All roles</MenuItem>
+                        {roles.map((role) => (
+                          <MenuItem value={role} key={role}>
+                            {role}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </>
+                )}
+
+                <FormControl size="small" style={{ minWidth: 180 }}>
+                  <InputLabel id="date-filter-label">Date</InputLabel>
+                  <Select
+                    labelId="date-filter-label"
+                    label="Date"
+                    value={dateQuery}
+                    onChange={(event) => setDateQuery(event.target.value)}>
+                    <MenuItem value="">All dates</MenuItem>
+                    {availableDates.map((d) => (
+                      <MenuItem value={d} key={d}>
+                        {new Intl.DateTimeFormat("en", {
+                          dateStyle: "medium",
+                          timeZone: "Africa/Cairo",
+                        }).format(new Date(d))}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleClearFilters}
+                  sx={{
+                    height: 40,
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
                   }}>
-                  <FormControl size="small" style={{ minWidth: 220 }}>
-                    <InputLabel id="employee-filter-label">Employee</InputLabel>
-                    <Select
-                      labelId="employee-filter-label"
-                      label="Employee"
-                      value={nameQuery}
-                      onChange={(event) => setNameQuery(event.target.value)}>
-                      <MenuItem value="">All employees</MenuItem>
-                      {employeeOptions.map((employee) => (
-                        <MenuItem value={employee.value} key={employee.value}>
-                          {employee.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" style={{ minWidth: 180 }}>
-                    <InputLabel id="department-filter-label">
-                      Department
-                    </InputLabel>
-                    <Select
-                      labelId="department-filter-label"
-                      label="Department"
-                      value={departmentQuery}
-                      onChange={(event) =>
-                        setDepartmentQuery(event.target.value)
-                      }>
-                      <MenuItem value="">All departments</MenuItem>
-                      {departments.map((department) => (
-                        <MenuItem value={department} key={department}>
-                          {department}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" style={{ minWidth: 180 }}>
-                    <InputLabel id="role-filter-label">Role</InputLabel>
-                    <Select
-                      labelId="role-filter-label"
-                      label="Role"
-                      value={roleQuery}
-                      onChange={(event) => setRoleQuery(event.target.value)}>
-                      <MenuItem value="">All roles</MenuItem>
-                      {roles.map((role) => (
-                        <MenuItem value={role} key={role}>
-                          {role}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" style={{ minWidth: 180 }}>
-                    <InputLabel id="date-filter-label">Date</InputLabel>
-                    <Select
-                      labelId="date-filter-label"
-                      label="Date"
-                      value={dateQuery}
-                      onChange={(event) => setDateQuery(event.target.value)}>
-                      <MenuItem value="">All dates</MenuItem>
-                      {availableDates.map((d) => (
-                        <MenuItem value={d} key={d}>
-                          {new Intl.DateTimeFormat("en", {
-                            dateStyle: "medium",
-                            timeZone: "Africa/Cairo",
-                          }).format(new Date(d))}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={handleClearFilters}
-                    sx={{
-                      height: 40,
-                      borderRadius: 2,
-                      textTransform: "none",
-                      fontWeight: 600,
-                    }}>
-                    Clear
-                  </Button>
-                </div>
-              )}
+                  Clear
+                </Button>
+              </div>
 
               <div className="admin-table-wrap">
                 <table className="admin-table">
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Name</th>
+                      {canManageAttendance && <th>Name</th>}
                       <th className="text-center">Shift</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
@@ -489,7 +505,7 @@ export default function AttendanceTable() {
                   <tbody>
                     {filteredLogs.length === 0 ? (
                       <tr>
-                        <td colSpan={12}>
+                        <td colSpan={canManageAttendance ? 5 : 4}>
                           {canManageAttendance
                             ? "No attendance logs found."
                             : "No attendance logs found for your account."}
@@ -502,24 +518,26 @@ export default function AttendanceTable() {
                             <strong>{i + 1}</strong>
                           </td>
 
-                          <td className="text-capitalize">
-                            <span
-                              onClick={() =>
-                                canManageAttendance &&
-                                navigate(`/employee-attendance/${l.user_id}`)
-                              }
-                              style={{
-                                cursor: canManageAttendance
-                                  ? "pointer"
-                                  : "default",
-                                color: canManageAttendance
-                                  ? "#0ea5e9"
-                                  : "inherit",
-                                fontWeight: 600,
-                              }}>
-                              {employeeName(l.user_id)}
-                            </span>
-                          </td>
+                          {canManageAttendance && (
+                            <td className="text-capitalize">
+                              <span
+                                onClick={() =>
+                                  canManageAttendance &&
+                                  navigate(`/employee-attendance/${l.user_id}`)
+                                }
+                                style={{
+                                  cursor: canManageAttendance
+                                    ? "pointer"
+                                    : "default",
+                                  color: canManageAttendance
+                                    ? "#0ea5e9"
+                                    : "inherit",
+                                  fontWeight: 600,
+                                }}>
+                                {employeeName(l.user_id)}
+                              </span>
+                            </td>
+                          )}
 
                           <td className="text-center">{l.shift_name || "-"}</td>
 

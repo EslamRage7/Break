@@ -89,44 +89,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===== DEBUG =====
-    console.log("NOW UTC:", now.toISOString());
-    console.log("attendanceDate:", attendanceDate);
-    console.log("user_id:", user_id);
-
-    const { data: rows } = await supabase
+    // تحقق إذا تم تسجيل حضور لنفس اليوم
+    const { data: activeAttendance } = await supabase
       .from("attendance")
-      .select("attendance_date, check_in, check_out, status")
+      .select("id")
       .eq("user_id", user_id)
-      .order("attendance_date", { ascending: false });
-
-    console.log("ALL ATTENDANCE:", JSON.stringify(rows, null, 2));
-    // =================
-
-    // تحقق إذا تم تسجيل حضور لنفس اليوم فقط
-    const { data: activeAttendance, error: activeAttendanceError } =
-      await supabase
-        .from("attendance")
-        .select("*")
-        .eq("user_id", user_id)
-        .eq("attendance_date", attendanceDate)
-        .is("check_out", null);
-
-    console.log("attendanceDate =", attendanceDate);
-    console.log(
-      "activeAttendance =",
-      JSON.stringify(activeAttendance, null, 2),
-    );
-    console.log(
-      "activeAttendance =",
-      JSON.stringify(activeAttendance, null, 2),
-    );
-
-    if (activeAttendance && activeAttendance.length > 0) {
+      .is("check_out", null)
+      .maybeSingle();
+    console.log("activeAttendance:", activeAttendance);
+    if (activeAttendance) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: "You already have an active attendance for today.",
+          message: "You already have an active attendance.",
         }),
         {
           status: 400,

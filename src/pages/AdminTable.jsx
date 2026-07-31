@@ -341,6 +341,7 @@ export default function AdminTable() {
       showMessage(err.message, "error");
     }
   };
+
   const handleClearFilters = () => {
     setFilters({
       name: "all",
@@ -373,209 +374,213 @@ export default function AdminTable() {
           </div>
 
           {loading && (
-            <div className="admin-loading">
+            <div className="admin-loading text-center justify-content-center mb-3">
               <CircularProgress size={30} />
               <span>Loading table...</span>
             </div>
           )}
 
           {!loading && !canManageEmployees && (
-            <div className="admin-empty">
+            <div className="admin-empty text-center justify-content-center ">
               You do not have permission to view this page.
             </div>
           )}
 
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 12,
-              marginBottom: 16,
-              alignItems: "end",
-            }}>
-            <TextField
-              select
-              size="small"
-              label="Name"
-              value={filters.name}
-              sx={{ minWidth: 180 }}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  name: event.target.value,
-                }))
-              }>
-              <MenuItem value="all">All</MenuItem>
-              {nameOptions.map((name) => (
-                <MenuItem key={name} value={name.toLowerCase()}>
-                  {name}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              select
-              size="small"
-              label="Department"
-              value={filters.department}
-              sx={{ minWidth: 180 }}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  department: event.target.value,
-                }))
-              }>
-              <MenuItem value="all">All</MenuItem>
-              {departmentOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              select
-              size="small"
-              label="Shift"
-              value={filters.shift}
-              sx={{ minWidth: 180 }}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  shift: event.target.value,
-                }))
-              }>
-              <MenuItem value="all">All</MenuItem>
-              {shifts.map((shift) => (
-                <MenuItem key={shift.id} value={shift.id}>
-                  {shift.shift_name}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              select
-              size="small"
-              label="Role"
-              value={filters.role}
-              sx={{ minWidth: 180 }}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  role: event.target.value,
-                }))
-              }>
-              <MenuItem value="all">All</MenuItem>
-              <MenuItem value="employee">Employee</MenuItem>
-              <MenuItem value="admin">Admin</MenuItem>
-              <MenuItem value="team_leader">Team Leader</MenuItem>
-            </TextField>
-
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleClearFilters}
-              sx={{
-                height: 40,
-                borderRadius: 2,
-                textTransform: "none",
-                fontWeight: 600,
-              }}>
-              Clear
-            </Button>
-          </div>
-
           {!loading && canManageEmployees && (
-            <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Name</th>
-                    <th className="text-center">Email</th>
-                    <th className="text-center">Department</th>
-                    <th className="text-center">Shift</th>
-                    <th className="text-center">Role</th>
-                  </tr>
-                </thead>
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  marginBottom: 16,
+                  alignItems: "end",
+                }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Name"
+                  value={filters.name}
+                  sx={{ minWidth: 180 }}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      name: event.target.value,
+                    }))
+                  }>
+                  <MenuItem value="all">All</MenuItem>
+                  {nameOptions.map((name) => (
+                    <MenuItem key={name} value={name.toLowerCase()}>
+                      {name}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-                <tbody>
-                  {filteredEmployees.map((employee, index) => {
-                    const employeeBreaks = breaksByUser[employee.user_id] || [];
+                <TextField
+                  select
+                  size="small"
+                  label="Department"
+                  value={filters.department}
+                  sx={{ minWidth: 180 }}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      department: event.target.value,
+                    }))
+                  }>
+                  <MenuItem value="all">All</MenuItem>
+                  {departmentOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-                    return (
-                      <tr
-                        key={employee.user_id}
-                        style={{
-                          backgroundColor:
-                            employee.role === "team_leader"
-                              ? "#fffacd34"
-                              : employee.role === "admin"
-                                ? "#ffcccc2d"
-                                : "transparent",
-                        }}>
-                        <td>
-                          <strong>{index + 1}</strong>
-                        </td>
-                        <td className="text-capitalize">
-                          <strong>
-                            {employee.first_name} {employee.last_name}
-                          </strong>
-                        </td>
-                        <td className="text-center">{employee.email}</td>
-                        <td className="text-center">
-                          {getDepartmentLabel(employee.department)}
-                        </td>
+                <TextField
+                  select
+                  size="small"
+                  label="Shift"
+                  value={filters.shift}
+                  sx={{ minWidth: 180 }}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      shift: event.target.value,
+                    }))
+                  }>
+                  <MenuItem value="all">All</MenuItem>
+                  {shifts.map((shift) => (
+                    <MenuItem key={shift.id} value={shift.id}>
+                      {shift.shift_name}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-                        <td className="text-center">
-                          <TextField
-                            size="small"
-                            select
-                            value={employeeShifts[employee.user_id] || ""}
-                            sx={{ minWidth: 180 }}
-                            onChange={(e) =>
-                              saveShift(employee.user_id, e.target.value)
-                            }>
-                            <MenuItem value="">Select Shift</MenuItem>
+                <TextField
+                  select
+                  size="small"
+                  label="Role"
+                  value={filters.role}
+                  sx={{ minWidth: 180 }}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      role: event.target.value,
+                    }))
+                  }>
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="employee">Employee</MenuItem>
+                  <MenuItem value="admin">Admin</MenuItem>
+                  <MenuItem value="team_leader">Team Leader</MenuItem>
+                </TextField>
 
-                            {shifts.map((shift) => (
-                              <MenuItem key={shift.id} value={shift.id}>
-                                {shift.shift_name}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleClearFilters}
+                  sx={{
+                    height: 40,
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
+                  }}>
+                  Clear
+                </Button>
+              </div>
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Name</th>
+
+                      <th className="text-center">Department</th>
+                      <th className="text-center">Shift</th>
+                      <th className="text-center">Role</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredEmployees.map((employee, index) => {
+                      const employeeBreaks =
+                        breaksByUser[employee.user_id] || [];
+
+                      return (
+                        <tr
+                          key={employee.user_id}
+                          style={{
+                            backgroundColor:
+                              employee.role === "team_leader"
+                                ? "#fffacd34"
+                                : employee.role === "admin"
+                                  ? "#ffcccc2d"
+                                  : "transparent",
+                          }}>
+                          <td>
+                            <strong>{index + 1}</strong>
+                          </td>
+                          <td className="text-capitalize">
+                            <strong>
+                              {employee.first_name} {employee.last_name}
+                            </strong>
+                          </td>
+
+                          <td className="text-center">
+                            {getDepartmentLabel(employee.department)}
+                          </td>
+
+                          <td className="text-center">
+                            <TextField
+                              size="small"
+                              select
+                              value={employeeShifts[employee.user_id] || ""}
+                              sx={{ minWidth: 180 }}
+                              onChange={(e) =>
+                                saveShift(employee.user_id, e.target.value)
+                              }>
+                              <MenuItem value="">Select Shift</MenuItem>
+
+                              {shifts.map((shift) => (
+                                <MenuItem key={shift.id} value={shift.id}>
+                                  {shift.shift_name}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          </td>
+                          <td className="text-center">
+                            <TextField
+                              size="small"
+                              select
+                              value={employee.role || "employee"}
+                              sx={{ minWidth: 180 }}
+                              disabled={
+                                userRole === "team_leader" ||
+                                updatingUserId === employee.user_id
+                              }
+                              onChange={(event) =>
+                                handleRoleChange(employee, event.target.value)
+                              }>
+                              <MenuItem value="employee">Employee</MenuItem>
+                              <MenuItem value="admin">Admin</MenuItem>
+                              <MenuItem value="team_leader">
+                                Team Leader
                               </MenuItem>
-                            ))}
-                          </TextField>
-                        </td>
-                        <td className="text-center">
-                          <TextField
-                            size="small"
-                            select
-                            value={employee.role || "employee"}
-                            sx={{ minWidth: 180 }}
-                            disabled={
-                              userRole === "team_leader" ||
-                              updatingUserId === employee.user_id
-                            }
-                            onChange={(event) =>
-                              handleRoleChange(employee, event.target.value)
-                            }>
-                            <MenuItem value="employee">Employee</MenuItem>
-                            <MenuItem value="admin">Admin</MenuItem>
-                            <MenuItem value="team_leader">Team Leader</MenuItem>
-                          </TextField>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            </TextField>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
 
-              {filteredEmployees.length === 0 && (
-                <div
-                  style={{ padding: 16, textAlign: "center", color: "#666" }}>
-                  No employees match the selected filters.
-                </div>
-              )}
-            </div>
+                {filteredEmployees.length === 0 && (
+                  <div
+                    style={{ padding: 16, textAlign: "center", color: "#666" }}>
+                    No employees match the selected filters.
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
         <Footer />

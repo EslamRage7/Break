@@ -71,7 +71,7 @@ export default function Login() {
 
       setTimeout(() => {
         navigate("/home", { replace: true });
-      }, 3000);
+      }, 2000);
     } catch (err) {
       console.error(err);
 
@@ -215,7 +215,7 @@ export default function Login() {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={2000}
         onClose={() =>
           setSnackbar((prev) => ({
             ...prev,

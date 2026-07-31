@@ -68,8 +68,10 @@ const getEndTimeValue = (item) => {
 const formatDuration = (minutes, seconds) => {
   if (!minutes && !seconds) return "-";
 
-  const totalMinutes = minutes || 0;
-  const totalSeconds = seconds || 0;
+  // A break session is limited to 45 minutes. This also keeps previously
+  // corrupted records (for example 405 minutes) from being shown as usage.
+  const totalMinutes = Math.min(45, Math.max(0, Number(minutes) || 0));
+  const totalSeconds = Math.max(0, Number(seconds) || 0);
 
   if (!totalMinutes) return `${totalSeconds}s`;
   if (!totalSeconds) return `${totalMinutes}m`;
@@ -178,6 +180,15 @@ export default function BreaksTable() {
     loadBreaks();
   }, []);
 
+  const getEffectiveStatus = (item) => {
+    if (item?.is_paused) return "paused";
+
+    const status = (item?.status || "").toLowerCase();
+    if (status === "completed") return "completed";
+    if (status === "active") return "active";
+    return status || "active";
+  };
+
   const filteredBreaks = useMemo(() => {
     return (breaks || []).filter((item) => {
       // filter by selected employee id (nameQuery holds user_id when selected)
@@ -193,10 +204,16 @@ export default function BreaksTable() {
 
       // filter by status
       if (statusQuery && statusQuery !== "all") {
+        const effectiveStatus = getEffectiveStatus(item);
+
         if (statusQuery === "paused") {
-          if (!item.is_paused) return false;
+          if (effectiveStatus !== "paused") return false;
+        } else if (statusQuery === "active") {
+          if (effectiveStatus !== "active") return false;
+        } else if (statusQuery === "completed") {
+          if (effectiveStatus !== "completed") return false;
         } else {
-          if ((item.status || "").toLowerCase() !== statusQuery) return false;
+          if (effectiveStatus !== statusQuery) return false;
         }
       }
 
@@ -240,9 +257,11 @@ export default function BreaksTable() {
   }, [breaks]);
 
   const getStatusLabel = (item) => {
-    if (item.is_paused) return "Paused";
-    if ((item.status || "").toLowerCase() === "completed") return "Completed";
-    if ((item.status || "").toLowerCase() === "active") return "Active";
+    const effectiveStatus = getEffectiveStatus(item);
+
+    if (effectiveStatus === "paused") return "Paused";
+    if (effectiveStatus === "completed") return "Completed";
+    if (effectiveStatus === "active") return "Active";
     return item.status || "-";
   };
 
@@ -264,14 +283,14 @@ export default function BreaksTable() {
           </div>
 
           {loading && (
-            <div className="admin-loading">
+            <div className="admin-loading text-center justify-content-center ">
               <CircularProgress size={30} />
               <span>Loading table...</span>
             </div>
           )}
 
           {!loading && !isAdmin && (
-            <div className="admin-empty">
+            <div className="admin-empty text-center justify-content-center ">
               You do not have permission to view this page.
             </div>
           )}

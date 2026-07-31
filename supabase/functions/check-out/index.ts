@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { user_id } = await req.json();
+    const { user_id, source = "user", checkout_time } = await req.json();
 
     const supabase = createClient(
       Deno.env.get("PROJECT_URL") ?? Deno.env.get("SUPABASE_URL")!,
@@ -35,7 +35,16 @@ Deno.serve(async (req) => {
     }
 
     const checkIn = new Date(attendance.check_in);
-    const checkOut = new Date();
+    const requestedCheckOut =
+      source === "system" && attendance.shift_end
+        ? new Date(attendance.shift_end)
+        : checkout_time
+          ? new Date(checkout_time)
+          : new Date();
+
+    const checkOut = Number.isNaN(requestedCheckOut.getTime())
+      ? new Date()
+      : requestedCheckOut;
 
     const shiftStart = new Date(attendance.shift_start);
     const shiftEnd = new Date(attendance.shift_end);
@@ -93,6 +102,8 @@ Deno.serve(async (req) => {
     } else if (overtimeMinutes > 0) {
       status = "Overtime";
     }
+    const finalStatus = source === "system" ? "Completed (System)" : status;
+
     const { data, error: updateError } = await supabase
       .from("attendance")
       .update({
@@ -100,7 +111,7 @@ Deno.serve(async (req) => {
         work_minutes: workMinutes,
         late_minutes: lateMinutes,
         overtime_minutes: overtimeMinutes,
-        status,
+        status: finalStatus,
       })
       .eq("id", attendance.id)
       .select()
@@ -121,8 +132,29 @@ Deno.serve(async (req) => {
     }
 
     if (openBreak) {
-      const usedSeconds = Math.floor(
-        (checkOut.getTime() - new Date(openBreak.start_time).getTime()) / 1000,
+      const breakLimitSeconds = Math.max(
+        0,
+        Number(openBreak.duration_seconds) || 45 * 60,
+      );
+      const savedUsedSeconds = Math.max(
+        0,
+        Number(openBreak.used_seconds) || 0,
+      );
+      const breakStart = new Date(openBreak.start_time);
+      const elapsedSinceLastStart = Number.isNaN(breakStart.getTime())
+        ? 0
+        : Math.max(
+            0,
+            Math.floor((checkOut.getTime() - breakStart.getTime()) / 1000),
+          );
+
+      // A paused break must keep its saved usage. When it is active, only the
+      // period since it was last started/resumed is added. Never exceed 45 min.
+      const usedSeconds = Math.min(
+        breakLimitSeconds,
+        openBreak.is_paused
+          ? savedUsedSeconds
+          : savedUsedSeconds + elapsedSinceLastStart,
       );
 
       const { error: closeBreakError } = await supabase
@@ -139,6 +171,21 @@ Deno.serve(async (req) => {
 
       if (closeBreakError) {
         console.error("Failed to close break session", closeBreakError);
+      }
+
+      if (!openBreak.is_paused) {
+        const { error: closeSegmentError } = await supabase
+          .from("break_segments")
+          .update({
+            end_time: checkOut.toISOString(),
+            duration_seconds: Math.max(0, usedSeconds - savedUsedSeconds),
+          })
+          .eq("break_session_id", openBreak.id)
+          .is("end_time", null);
+
+        if (closeSegmentError) {
+          console.error("Failed to close break segment", closeSegmentError);
+        }
       }
     }
     return new Response(

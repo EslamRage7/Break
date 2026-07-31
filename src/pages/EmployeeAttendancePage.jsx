@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, CircularProgress, Snackbar } from "@mui/material";
+import {
+  Alert,
+  Button,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Snackbar,
+} from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
@@ -102,6 +111,67 @@ const formatMinutes = (minutes) => {
   if (hours) return `${hours}h`;
   return `${mins}m`;
 };
+
+const getCheckOutType = (status) => {
+  if (!status) return { type: "-", color: "#94a3b8", bg: "#f1f5f9" };
+
+  const statusStr = `${status}`.toLowerCase();
+
+  if (statusStr.includes("system")) {
+    return {
+      type: "System",
+      label: "Check out تلقائي",
+      color: "#ea580c",
+      bg: "#fed7aa",
+      borderColor: "#fdba74",
+    };
+  }
+
+  return {
+    type: "Manual",
+    label: "Check out يدوي",
+    color: "#0891b2",
+    bg: "#cffafe",
+    borderColor: "#06b6d4",
+  };
+};
+
+const getEarlyMinutes = (log) => {
+  const directValue = Number(log.early_minutes ?? log.early_arrival_minutes);
+  if (Number.isFinite(directValue) && directValue > 0) {
+    return directValue;
+  }
+
+  if (!log.check_in || !log.shift_start) return 0;
+
+  const checkIn = new Date(log.check_in);
+  if (Number.isNaN(checkIn.getTime())) return 0;
+
+  const shiftStartText = `${log.shift_start}`.trim();
+  const shiftStartMatch = shiftStartText.match(
+    /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/,
+  );
+
+  if (shiftStartMatch) {
+    const shiftDate = new Date(checkIn);
+    shiftDate.setHours(
+      Number(shiftStartMatch[1]),
+      Number(shiftStartMatch[2]),
+      Number(shiftStartMatch[3] || 0),
+      0,
+    );
+
+    const diffMinutes = Math.round((shiftDate - checkIn) / 60000);
+    return diffMinutes > 0 ? diffMinutes : 0;
+  }
+
+  const shiftStartDate = new Date(shiftStartText);
+  if (Number.isNaN(shiftStartDate.getTime())) return 0;
+
+  const diffMinutes = Math.round((shiftStartDate - checkIn) / 60000);
+  return diffMinutes > 0 ? diffMinutes : 0;
+};
+
 export default function EmployeeAttendancePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -109,6 +179,7 @@ export default function EmployeeAttendancePage() {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [dateFilter, setDateFilter] = useState("");
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -132,6 +203,42 @@ export default function EmployeeAttendancePage() {
     }
     return "Employee Attendance History";
   }, [employee, employeeName, userId]);
+
+  const availableDates = useMemo(() => {
+    const dates = logs
+      .map((log) => {
+        const rawValue = log.attendance_date || log.check_in || log.created_at;
+        if (!rawValue) return "";
+
+        const parsedDate = new Date(rawValue);
+        if (Number.isNaN(parsedDate.getTime())) return "";
+
+        return `${parsedDate.getFullYear()}-${String(
+          parsedDate.getMonth() + 1,
+        ).padStart(2, "0")}-${String(parsedDate.getDate()).padStart(2, "0")}`;
+      })
+      .filter(Boolean);
+
+    return [...new Set(dates)].sort((a, b) => b.localeCompare(a));
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    if (!dateFilter) return logs;
+
+    return logs.filter((log) => {
+      const rawValue = log.attendance_date || log.check_in || log.created_at;
+      if (!rawValue) return false;
+
+      const parsedDate = new Date(rawValue);
+      if (Number.isNaN(parsedDate.getTime())) return false;
+
+      const value = `${parsedDate.getFullYear()}-${String(
+        parsedDate.getMonth() + 1,
+      ).padStart(2, "0")}-${String(parsedDate.getDate()).padStart(2, "0")}`;
+
+      return value === dateFilter;
+    });
+  }, [dateFilter, logs]);
 
   useEffect(() => {
     document.title = pageTitle;
@@ -197,7 +304,7 @@ export default function EmployeeAttendancePage() {
         const { data: logsData, error: logsError } = await supabase
           .from("attendance")
           .select(
-            "id,user_id,check_in,check_out,work_minutes,status,created_at,early_minutes,overtime_minutes,attendance_date,shift_name,early_arrival_minutes,late_minutes",
+            "id,user_id,check_in,check_out,work_minutes,status,created_at,early_minutes,overtime_minutes,attendance_date,shift_name,shift_start,early_arrival_minutes,late_minutes",
           )
           .eq("user_id", userId)
           .not("check_out", "is", null)
@@ -278,29 +385,76 @@ export default function EmployeeAttendancePage() {
                 </span>
               </div>
 
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginBottom: 16,
+                  alignItems: "center",
+                }}>
+                <FormControl size="small" style={{ minWidth: 180 }}>
+                  <InputLabel id="attendance-date-filter-label">
+                    Date
+                  </InputLabel>
+                  <Select
+                    labelId="attendance-date-filter-label"
+                    label="Date"
+                    value={dateFilter}
+                    onChange={(event) => setDateFilter(event.target.value)}>
+                    <MenuItem value="">All dates</MenuItem>
+                    {availableDates.map((date) => (
+                      <MenuItem value={date} key={date}>
+                        {new Intl.DateTimeFormat("en", {
+                          dateStyle: "medium",
+                          timeZone: "Africa/Cairo",
+                        }).format(new Date(`${date}T00:00:00`))}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setDateFilter("")}
+                  sx={{
+                    height: 40,
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: 600,
+                  }}>
+                  Clear
+                </Button>
+              </div>
+
               <div className="admin-table-wrap">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th className="text-center">#</th>
                       <th className="text-center">Shift</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
 
-                      <th className="text-center">Worked Hours</th>
+                      <th className="text-center">Early</th>
+                      <th className="text-center">Late</th>
+                      <th className="text-center">Hours</th>
+                      <th className="text-center">Overtime</th>
+                      <th className="text-center">Type</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {logs.length === 0 ? (
+                    {filteredLogs.length === 0 ? (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={9}>
                           No attendance history found for this employee.
                         </td>
                       </tr>
                     ) : (
-                      logs.map((log, index) => (
+                      filteredLogs.map((log, index) => (
                         <tr key={log.id}>
-                          <td>
+                          <td className="text-center">
                             <strong>{index + 1}</strong>
                           </td>
                           <td className="text-center">
@@ -312,14 +466,78 @@ export default function EmployeeAttendancePage() {
                           <td className="text-center">
                             {formatDateTime(log.check_out)}
                           </td>
+                          <td className="text-center">
+                            <div
+                              style={{
+                                display: "inline-flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: "6px",
+                                flexWrap: "nowrap",
+                                whiteSpace: "nowrap",
+                              }}>
+                              {(() => {
+                                const earlyMinutes = getEarlyMinutes(log);
+                                if (!earlyMinutes) return <span>-</span>;
+
+                                return (
+                                  <span
+                                    style={{
+                                      padding: "6px 8px",
+                                      borderRadius: 999,
+                                      background: "#dbeafe",
+                                      color: "#1d4ed8",
+                                      fontWeight: 700,
+                                      border: "1px solid #93c5fd",
+                                    }}>
+                                    {formatMinutes(earlyMinutes)}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </td>
 
                           <td className="text-center">
                             <div
                               style={{
-                                display: "flex",
+                                display: "inline-flex",
                                 justifyContent: "center",
+                                alignItems: "center",
                                 gap: "6px",
-                                flexWrap: "wrap",
+                                flexWrap: "nowrap",
+                                whiteSpace: "nowrap",
+                              }}>
+                              {(() => {
+                                const lateMinutes =
+                                  Number(log.late_minutes) || 0;
+                                if (!lateMinutes) return <span>-</span>;
+
+                                return (
+                                  <span
+                                    style={{
+                                      padding: "6px 8px",
+                                      borderRadius: 999,
+                                      background: "#fee2e2",
+                                      color: "#dc2626ee",
+                                      fontWeight: 700,
+                                      border: "1px solid #fca5a5",
+                                    }}>
+                                    {formatMinutes(lateMinutes)}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </td>
+
+                          <td className="text-center">
+                            <div
+                              style={{
+                                display: "inline-flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: "6px",
+                                flexWrap: "nowrap",
+                                whiteSpace: "nowrap",
                               }}>
                               {(() => {
                                 const earlyArrival =
@@ -327,39 +545,80 @@ export default function EmployeeAttendancePage() {
                                     log.early_minutes ??
                                       log.early_arrival_minutes,
                                   ) || 0;
-                                if (earlyArrival <= 0) return null;
+                                const totalMinutes = Math.max(
+                                  0,
+                                  Number(log.work_minutes || 0) + earlyArrival,
+                                );
+
+                                return totalMinutes > 0 ? (
+                                  <span
+                                    style={{
+                                      padding: "6px 8px",
+                                      borderRadius: 999,
+                                      background: "#10b9811f",
+                                      color: "#047857",
+                                      fontWeight: 700,
+                                      border: "1px solid #10b98140",
+                                    }}>
+                                    {formatMinutes(totalMinutes)}
+                                  </span>
+                                ) : (
+                                  <span>-</span>
+                                );
                               })()}
-
-                              {Number(log.work_minutes) > 0 ? (
-                                <span
-                                  style={{
-                                    padding: "6px 10px",
-                                    borderRadius: 999,
-                                    background: "#10b9811f",
-                                    color: "#047857",
-                                    fontWeight: 700,
-                                    border: "1px solid #10b98140",
-                                  }}>
-                                  {formatMinutes(log.work_minutes)}
-                                </span>
-                              ) : Number(log.overtime_minutes) <= 0 ? (
-                                <span>-</span>
-                              ) : null}
-
-                              {Number(log.overtime_minutes) > 0 && (
-                                <span
-                                  style={{
-                                    padding: "6px 10px",
-                                    borderRadius: 999,
-                                    background: "#f973161f",
-                                    color: "#c2410c",
-                                    fontWeight: 700,
-                                    border: "1px solid #f9731655",
-                                  }}>
-                                  OT {formatMinutes(log.overtime_minutes)}
-                                </span>
-                              )}
                             </div>
+                          </td>
+
+                          <td className="text-center">
+                            <div
+                              style={{
+                                display: "inline-flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: "6px",
+                                flexWrap: "nowrap",
+                                whiteSpace: "nowrap",
+                              }}>
+                              {(() => {
+                                const overtimeMinutes =
+                                  Number(log.overtime_minutes) || 0;
+                                if (!overtimeMinutes) return <span>-</span>;
+
+                                return (
+                                  <span
+                                    style={{
+                                      padding: "6px 8px",
+                                      borderRadius: 999,
+                                      background: "#fef3c7",
+                                      color: "#b45309",
+                                      fontWeight: 700,
+                                      border: "1px solid #fcd34d",
+                                    }}>
+                                    {formatMinutes(overtimeMinutes)}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </td>
+                          <td className="text-center">
+                            {(() => {
+                              const checkoutInfo = getCheckOutType(log.status);
+                              return (
+                                <span
+                                  style={{
+                                    padding: "6px 8px",
+                                    borderRadius: 999,
+                                    background: checkoutInfo.bg,
+                                    color: checkoutInfo.color,
+                                    fontWeight: 700,
+                                    border: `1px solid ${checkoutInfo.borderColor || checkoutInfo.color}`,
+                                    fontSize: "12px",
+                                  }}
+                                  title={checkoutInfo.label}>
+                                  {checkoutInfo.type}
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))

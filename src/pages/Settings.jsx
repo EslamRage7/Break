@@ -1,9 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Button, MenuItem, Snackbar, TextField } from "@mui/material";
 import Sidebar from "../components/Sidebar";
 import { supabase } from "../supabaseClient";
+import { getBreakLimitForDepartment } from "../utils/breakUtils";
 import Footer from "../components/Footer";
-import { Visibility, VisibilityOff } from "@mui/icons-material";
+import {
+  BadgeRounded,
+  LockRounded,
+  PersonRounded,
+  Visibility,
+  VisibilityOff,
+} from "@mui/icons-material";
 import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
@@ -52,7 +59,21 @@ export default function Settings() {
 
   const textFieldStyle = {
     "& .MuiOutlinedInput-root": {
-      borderRadius: "15px",
+      borderRadius: "12px",
+      backgroundColor: "#ffffff",
+      transition: "box-shadow 0.2s ease, border-color 0.2s ease",
+      "&:hover": {
+        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.07)",
+      },
+      "&.Mui-focused": {
+        boxShadow: "0 0 0 4px rgba(0, 166, 235, 0.12)",
+      },
+      "&.Mui-disabled": {
+        backgroundColor: "#f8fafc",
+      },
+    },
+    "& .MuiInputLabel-root.Mui-focused": {
+      color: "#00a6eb",
     },
   };
 
@@ -61,6 +82,7 @@ export default function Settings() {
     GD: "Graphic Design",
     DE: "Data Entry",
     DV: "Development",
+    PK: "Packaging",
     MG: "Management",
   };
 
@@ -93,7 +115,7 @@ export default function Settings() {
     ([value, label]) => ({ value, label }),
   );
 
-  const getDepartmentCode = (value) => {
+  const getDepartmentCode = useCallback((value) => {
     const text = `${value || ""}`.trim();
     if (!text) return "";
 
@@ -123,7 +145,7 @@ export default function Settings() {
 
     // fallback to original value (useful for custom departments)
     return text;
-  };
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -200,7 +222,7 @@ export default function Settings() {
     };
 
     loadProfile();
-  }, []);
+  }, [getDepartmentCode]);
 
   const handleSave = async () => {
     if (
@@ -238,6 +260,7 @@ export default function Settings() {
 
     try {
       if (profileChanged) {
+        const resolvedLimit = getBreakLimitForDepartment(department);
         const { error: profileError } = await supabase
           .from("employees")
           .update({
@@ -246,6 +269,7 @@ export default function Settings() {
             email: email.trim(),
             department,
             gender: gender === "true",
+            daily_break_limit: resolvedLimit,
           })
           .eq("user_id", userId);
 
@@ -332,8 +356,30 @@ export default function Settings() {
             </Typography>
           </div>
 
-          <div className="settings-form" style={{ margin: "0 auto" }}>
-            <div className="form-row" style={{ marginBottom: "20px" }}>
+          <div className="settings-form">
+            <div className="settings-form-top">
+              <div className="settings-avatar" aria-hidden="true">
+                {`${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() ||
+                  "U"}
+              </div>
+
+              <div className="settings-user-copy">
+                <strong>
+                  {`${firstName || ""} ${lastName || ""}`.trim() ||
+                    "Your Profile"}
+                </strong>
+                <span>{email || "Account settings"}</span>
+              </div>
+
+              {role && <span className="settings-role-chip">{role}</span>}
+            </div>
+
+            <div className="settings-section-title mb-4">
+              <PersonRounded fontSize="small" />
+              <span>Personal Details</span>
+            </div>
+
+            <div className="settings-grid">
               <TextField
                 size="small"
                 label="First Name"
@@ -343,9 +389,7 @@ export default function Settings() {
                 fullWidth
                 sx={textFieldStyle}
               />
-            </div>
 
-            <div className="form-row" style={{ marginBottom: "20px" }}>
               <TextField
                 size="small"
                 label="Last Name"
@@ -355,22 +399,17 @@ export default function Settings() {
                 fullWidth
                 sx={textFieldStyle}
               />
-            </div>
 
-            <div className="form-row" style={{ marginBottom: "20px" }}>
               <TextField
                 size="small"
                 label="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={loading || saving}
                 disabled
                 fullWidth
                 sx={textFieldStyle}
               />
-            </div>
 
-            <div className="form-row" style={{ marginBottom: "20px" }}>
               <TextField
                 size="small"
                 select
@@ -386,7 +425,12 @@ export default function Settings() {
               </TextField>
             </div>
 
-            <div className="form-row" style={{ marginBottom: "20px" }}>
+            <div className="settings-section-title my-4">
+              <BadgeRounded fontSize="small" />
+              <span>Work Details</span>
+            </div>
+
+            <div className="settings-grid">
               {role === "admin" ? (
                 <TextField
                   size="small"
@@ -414,9 +458,7 @@ export default function Settings() {
                   sx={textFieldStyle}
                 />
               )}
-            </div>
 
-            <div className="form-row" style={{ marginBottom: "20px" }}>
               {role === "admin" || role === "team_leader" ? (
                 <TextField
                   size="small"
@@ -449,47 +491,62 @@ export default function Settings() {
               )}
             </div>
 
-            <TextField
-              size="small"
-              label="New Password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading || saving}
-              helperText="Leave empty if you do not want to change it"
-              fullWidth
-              sx={{ ...textFieldStyle, marginBottom: "20px" }}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={handleTogglePassword}
-                        edge="end"
-                        sx={{
-                          p: "4px",
-                          color: "#000",
-                          marginRight: "2px",
-                          backgroundColor: "transparent",
-                          "&:hover": {
+            <div className="settings-section-title">
+              <LockRounded fontSize="small" />
+              <span>Password</span>
+            </div>
+
+            <div className="settings-password-row">
+              <TextField
+                size="small"
+                label="New Password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading || saving}
+                helperText="Leave empty if you do not want to change it"
+                fullWidth
+                sx={textFieldStyle}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockRounded sx={{ color: "#64748b", fontSize: 19 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={handleTogglePassword}
+                          edge="end"
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          sx={{
+                            p: "4px",
+                            color: "#0f172a",
+                            marginRight: "2px",
                             backgroundColor: "transparent",
-                          },
-                        }}>
-                        {showPassword ? (
-                          <VisibilityOff sx={{ fontSize: 20 }} />
-                        ) : (
-                          <Visibility sx={{ fontSize: 20 }} />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
+                            "&:hover": {
+                              backgroundColor: "transparent",
+                            },
+                          }}>
+                          {showPassword ? (
+                            <VisibilityOff sx={{ fontSize: 20 }} />
+                          ) : (
+                            <Visibility sx={{ fontSize: 20 }} />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </div>
 
             <Button
               variant="contained"
-              className="m-auto sign-btn"
+              className="sign-btn settings-save-btn"
               onClick={handleSave}
               disabled={loading || saving}
               sx={{

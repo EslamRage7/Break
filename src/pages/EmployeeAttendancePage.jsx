@@ -70,31 +70,25 @@ const formatWorkDuration = (workMinutes, overtimeMinutes) => {
   const workHours = Math.floor(work / 60);
   const workMins = work % 60;
 
-  let result = "";
-
-  if (workHours && workMins) {
-    result = `${workHours}h ${workMins}m`;
-  } else if (workHours) {
-    result = `${workHours}h`;
-  } else {
-    result = `${workMins}m`;
-  }
+  const result =
+    workHours && workMins
+      ? `${workHours}h ${workMins}m`
+      : workHours
+        ? `${workHours}h`
+        : `${workMins}m`;
 
   if (overtime > 0) {
     const otHours = Math.floor(overtime / 60);
     const otMins = overtime % 60;
 
-    let otText = "";
+    const otText =
+      otHours && otMins
+        ? `${otHours}h ${otMins}m`
+        : otHours
+          ? `${otHours}h`
+          : `${otMins}m`;
 
-    if (otHours && otMins) {
-      otText = `${otHours}h ${otMins}m`;
-    } else if (otHours) {
-      otText = `${otHours}h`;
-    } else {
-      otText = `${otMins}m`;
-    }
-
-    result += ` + ${otText}`;
+    return `${result} + ${otText}`;
   }
 
   return result;
@@ -112,27 +106,85 @@ const formatMinutes = (minutes) => {
   return `${mins}m`;
 };
 
-const getCheckOutType = (status) => {
-  if (!status) return { type: "-", color: "#94a3b8", bg: "#f1f5f9" };
+const getCheckOutType = (status, isAutoCheckout) => {
+  const statusText = `${status ?? ""}`.trim().toLowerCase();
 
-  const statusStr = `${status}`.toLowerCase();
-
-  if (statusStr.includes("system")) {
+  if (statusText.includes("system") || statusText.includes("auto")) {
     return {
       type: "System",
-      label: "Check out تلقائي",
+      label: "Checkout by system",
       color: "#ea580c",
       bg: "#fed7aa",
       borderColor: "#fdba74",
     };
   }
 
+  if (statusText.includes("manual") || statusText.includes("user")) {
+    return {
+      type: "Manual",
+      label: "Checkout by user",
+      color: "#0891b2",
+      bg: "#cffafe",
+      borderColor: "#06b6d4",
+    };
+  }
+
+  if (typeof isAutoCheckout === "boolean") {
+    return isAutoCheckout
+      ? {
+          type: "System",
+          label: "Checkout by system",
+          color: "#ea580c",
+          bg: "#fed7aa",
+          borderColor: "#fdba74",
+        }
+      : {
+          type: "Manual",
+          label: "Checkout by user",
+          color: "#0891b2",
+          bg: "#cffafe",
+          borderColor: "#06b6d4",
+        };
+  }
+
+  const autoValue = `${isAutoCheckout ?? ""}`.trim().toLowerCase();
+
+  if (
+    autoValue === "true" ||
+    autoValue === "system" ||
+    autoValue === "auto" ||
+    autoValue === "1"
+  ) {
+    return {
+      type: "System",
+      label: "Checkout by system",
+      color: "#ea580c",
+      bg: "#fed7aa",
+      borderColor: "#fdba74",
+    };
+  }
+
+  if (
+    autoValue === "false" ||
+    autoValue === "manual" ||
+    autoValue === "user" ||
+    autoValue === "0"
+  ) {
+    return {
+      type: "Manual",
+      label: "Checkout by user",
+      color: "#0891b2",
+      bg: "#cffafe",
+      borderColor: "#06b6d4",
+    };
+  }
+
   return {
-    type: "Manual",
-    label: "Check out يدوي",
-    color: "#0891b2",
-    bg: "#cffafe",
-    borderColor: "#06b6d4",
+    type: "Unknown",
+    label: "Unknown checkout type",
+    color: "#64748b",
+    bg: "#f1f5f9",
+    borderColor: "#cbd5e1",
   };
 };
 
@@ -172,6 +224,37 @@ const getEarlyMinutes = (log) => {
   return diffMinutes > 0 ? diffMinutes : 0;
 };
 
+const getWorkLocation = (log) => {
+  if (!log) return "-";
+
+  const directValue = log.work_location;
+
+  if (directValue) {
+    return (
+      String(directValue).charAt(0).toUpperCase() + String(directValue).slice(1)
+    );
+  }
+
+  return "Office";
+};
+
+const isTodayLog = (log) => {
+  if (!log?.attendance_date && !log?.check_in && !log?.created_at) return false;
+
+  const rawValue = log.attendance_date || log.check_in || log.created_at;
+  if (!rawValue) return false;
+
+  const parsedDate = new Date(rawValue);
+  if (Number.isNaN(parsedDate.getTime())) return false;
+
+  const today = new Date();
+  return (
+    parsedDate.getFullYear() === today.getFullYear() &&
+    parsedDate.getMonth() === today.getMonth() &&
+    parsedDate.getDate() === today.getDate()
+  );
+};
+
 export default function EmployeeAttendancePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -180,6 +263,8 @@ export default function EmployeeAttendancePage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [dateFilter, setDateFilter] = useState("");
+  const [monthFilter, setMonthFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -202,10 +287,12 @@ export default function EmployeeAttendancePage() {
       return ` Attendance History`;
     }
     return "Employee Attendance History";
-  }, [employee, employeeName, userId]);
+  }, [employee, userId]);
+
+  const regularLogs = useMemo(() => logs, [logs]);
 
   const availableDates = useMemo(() => {
-    const dates = logs
+    const dates = regularLogs
       .map((log) => {
         const rawValue = log.attendance_date || log.check_in || log.created_at;
         if (!rawValue) return "";
@@ -220,12 +307,38 @@ export default function EmployeeAttendancePage() {
       .filter(Boolean);
 
     return [...new Set(dates)].sort((a, b) => b.localeCompare(a));
-  }, [logs]);
+  }, [regularLogs]);
+
+  const availableMonths = useMemo(() => {
+    const months = regularLogs
+      .map((log) => {
+        const rawValue = log.attendance_date || log.check_in || log.created_at;
+        if (!rawValue) return "";
+
+        const parsedDate = new Date(rawValue);
+        if (Number.isNaN(parsedDate.getTime())) return "";
+
+        return `${parsedDate.getFullYear()}-${String(
+          parsedDate.getMonth() + 1,
+        ).padStart(2, "0")}`;
+      })
+      .filter(Boolean);
+
+    return [...new Set(months)].sort((a, b) => b.localeCompare(a));
+  }, [regularLogs]);
+
+  const availableLocations = useMemo(() => {
+    const locations = regularLogs
+      .map((log) => getWorkLocation(log))
+      .filter(Boolean);
+
+    return [...new Set(locations)].sort((a, b) => a.localeCompare(b));
+  }, [regularLogs]);
 
   const filteredLogs = useMemo(() => {
-    if (!dateFilter) return logs;
+    if (!dateFilter && !monthFilter && !locationFilter) return regularLogs;
 
-    return logs.filter((log) => {
+    return regularLogs.filter((log) => {
       const rawValue = log.attendance_date || log.check_in || log.created_at;
       if (!rawValue) return false;
 
@@ -236,9 +349,29 @@ export default function EmployeeAttendancePage() {
         parsedDate.getMonth() + 1,
       ).padStart(2, "0")}-${String(parsedDate.getDate()).padStart(2, "0")}`;
 
-      return value === dateFilter;
+      if (dateFilter && value !== dateFilter) {
+        return false;
+      }
+
+      if (monthFilter) {
+        const monthValue = `${parsedDate.getFullYear()}-${String(
+          parsedDate.getMonth() + 1,
+        ).padStart(2, "0")}`;
+        if (monthValue !== monthFilter) {
+          return false;
+        }
+      }
+
+      if (locationFilter) {
+        const locationValue = getWorkLocation(log);
+        if (locationValue !== locationFilter) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [dateFilter, logs]);
+  }, [dateFilter, monthFilter, locationFilter, regularLogs]);
 
   useEffect(() => {
     document.title = pageTitle;
@@ -304,7 +437,7 @@ export default function EmployeeAttendancePage() {
         const { data: logsData, error: logsError } = await supabase
           .from("attendance")
           .select(
-            "id,user_id,check_in,check_out,work_minutes,status,created_at,early_minutes,overtime_minutes,attendance_date,shift_name,shift_start,early_arrival_minutes,late_minutes",
+            "id,user_id,check_in,check_out,work_minutes,status,created_at,early_minutes,overtime_minutes,attendance_date,shift_name,shift_start,early_arrival_minutes,late_minutes,work_location,is_auto_checkout",
           )
           .eq("user_id", userId)
           .not("check_out", "is", null)
@@ -414,10 +547,54 @@ export default function EmployeeAttendancePage() {
                   </Select>
                 </FormControl>
 
+                <FormControl size="small" style={{ minWidth: 180 }}>
+                  <InputLabel id="attendance-month-filter-label">
+                    Month
+                  </InputLabel>
+                  <Select
+                    labelId="attendance-month-filter-label"
+                    label="Month"
+                    value={monthFilter}
+                    onChange={(event) => setMonthFilter(event.target.value)}>
+                    <MenuItem value="">All months</MenuItem>
+                    {availableMonths.map((month) => (
+                      <MenuItem value={month} key={month}>
+                        {new Intl.DateTimeFormat("en", {
+                          month: "long",
+                          year: "numeric",
+                          timeZone: "Africa/Cairo",
+                        }).format(new Date(`${month}-01`))}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl size="small" style={{ minWidth: 180 }}>
+                  <InputLabel id="attendance-location-filter-label">
+                    Location
+                  </InputLabel>
+                  <Select
+                    labelId="attendance-location-filter-label"
+                    label="Location"
+                    value={locationFilter}
+                    onChange={(event) => setLocationFilter(event.target.value)}>
+                    <MenuItem value="">All locations</MenuItem>
+                    {availableLocations.map((location) => (
+                      <MenuItem value={location} key={location}>
+                        {location}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() => setDateFilter("")}
+                  onClick={() => {
+                    setDateFilter("");
+                    setMonthFilter("");
+                    setLocationFilter("");
+                  }}
                   sx={{
                     height: 40,
                     borderRadius: 2,
@@ -434,6 +611,7 @@ export default function EmployeeAttendancePage() {
                     <tr>
                       <th className="text-center">#</th>
                       <th className="text-center">Shift</th>
+                      <th className="text-center">Location</th>
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
 
@@ -459,6 +637,34 @@ export default function EmployeeAttendancePage() {
                           </td>
                           <td className="text-center">
                             {log.shift_name || "-"}
+                          </td>
+                          <td className="text-center">
+                            {getWorkLocation(log) !== "Office" ? (
+                              <span
+                                style={{
+                                  padding: "6px 10px",
+                                  color: "#00a6eb",
+                                  fontWeight: 700,
+                                }}>
+                                {getWorkLocation(log)}
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  padding: "6px 10px",
+                                  color: "black",
+                                  fontWeight: 700,
+                                }}>
+                                {getWorkLocation(log)}
+                              </span>
+                            )}
+
+                            <span
+                              style={{
+                                padding: "6px 10px",
+                                color: "#00a6eb",
+                                fontWeight: 700,
+                              }}></span>
                           </td>
                           <td className="text-center">
                             {formatDateTime(log.check_in)}
@@ -602,7 +808,10 @@ export default function EmployeeAttendancePage() {
                           </td>
                           <td className="text-center">
                             {(() => {
-                              const checkoutInfo = getCheckOutType(log.status);
+                              const checkoutInfo = getCheckOutType(
+                                log.status,
+                                log.is_auto_checkout,
+                              );
                               return (
                                 <span
                                   style={{

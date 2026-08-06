@@ -3,9 +3,11 @@ import {
   Alert,
   Button,
   CircularProgress,
+  FormControl,
+  InputLabel,
   MenuItem,
+  Select,
   Snackbar,
-  TextField,
 } from "@mui/material";
 import Sidebar from "../components/Sidebar";
 import { supabase } from "../supabaseClient";
@@ -17,6 +19,7 @@ const departmentNames = {
   GD: "Graphic Design",
   DE: "Data Entry",
   DV: "Development",
+  PK: "Packaging",
   MG: "Management",
 };
 
@@ -99,10 +102,10 @@ export default function AdminTable() {
   const [loading, setLoading] = useState(true);
   const [updatingUserId, setUpdatingUserId] = useState("");
   const [filters, setFilters] = useState({
-    name: "all",
-    department: "all",
-    shift: "all",
-    role: "all",
+    name: "",
+    department: "",
+    shift: "",
+    role: "",
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -190,14 +193,13 @@ export default function AdminTable() {
       const normalizedFilter = (value) => `${value || ""}`.trim().toLowerCase();
 
       const matchesName =
-        filters.name === "all" || fullName === normalizedFilter(filters.name);
+        filters.name === "" || fullName === normalizedFilter(filters.name);
       const matchesDepartment =
-        filters.department === "all" ||
+        filters.department === "" ||
         employeeDepartmentValue === filterDepartmentValue;
       const matchesShift =
-        filters.shift === "all" || selectedShift === filters.shift;
-      const matchesRole =
-        filters.role === "all" || selectedRole === filters.role;
+        filters.shift === "" || selectedShift === filters.shift;
+      const matchesRole = filters.role === "" || selectedRole === filters.role;
 
       return matchesName && matchesDepartment && matchesShift && matchesRole;
     });
@@ -344,10 +346,10 @@ export default function AdminTable() {
 
   const handleClearFilters = () => {
     setFilters({
-      name: "all",
-      department: "all",
-      shift: "all",
-      role: "all",
+      name: "",
+      department: "",
+      shift: "",
+      role: "",
     });
   };
 
@@ -396,83 +398,105 @@ export default function AdminTable() {
                   marginBottom: 16,
                   alignItems: "end",
                 }}>
-                <TextField
-                  select
+                <FormControl
                   size="small"
-                  label="Name"
-                  value={filters.name}
-                  sx={{ minWidth: 180 }}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      name: event.target.value,
-                    }))
-                  }>
-                  <MenuItem value="all">All</MenuItem>
-                  {nameOptions.map((name) => (
-                    <MenuItem key={name} value={name.toLowerCase()}>
-                      {name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  variant="outlined"
+                  style={{ minWidth: 220 }}>
+                  <InputLabel id="filter-name-label">Name</InputLabel>
+                  <Select
+                    labelId="filter-name-label"
+                    label="Name"
+                    value={filters.name}
+                    renderValue={(selected) => selected || ""}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        name: event.target.value,
+                      }))
+                    }>
+                    <MenuItem value="">All</MenuItem>
+                    {nameOptions.map((name) => (
+                      <MenuItem key={name} value={name.toLowerCase()}>
+                        {name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                <TextField
-                  select
+                <FormControl
                   size="small"
-                  label="Department"
-                  value={filters.department}
-                  sx={{ minWidth: 180 }}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      department: event.target.value,
-                    }))
-                  }>
-                  <MenuItem value="all">All</MenuItem>
-                  {departmentOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  variant="outlined"
+                  sx={{ minWidth: 180, bgcolor: "#fff", borderRadius: 1 }}>
+                  <InputLabel id="filter-department-label">
+                    Department
+                  </InputLabel>
+                  <Select
+                    labelId="filter-department-label"
+                    label="Department"
+                    value={filters.department}
+                    renderValue={(selected) => selected || ""}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        department: event.target.value,
+                      }))
+                    }>
+                    <MenuItem value="">All</MenuItem>
+                    {departmentOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                <TextField
-                  select
+                <FormControl
                   size="small"
-                  label="Shift"
-                  value={filters.shift}
-                  sx={{ minWidth: 180 }}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      shift: event.target.value,
-                    }))
-                  }>
-                  <MenuItem value="all">All</MenuItem>
-                  {shifts.map((shift) => (
-                    <MenuItem key={shift.id} value={shift.id}>
-                      {shift.shift_name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  variant="outlined"
+                  sx={{ minWidth: 180, bgcolor: "#fff", borderRadius: 1 }}>
+                  <InputLabel id="filter-shift-label">Shift</InputLabel>
+                  <Select
+                    labelId="filter-shift-label"
+                    label="Shift"
+                    value={filters.shift}
+                    renderValue={(selected) => selected || ""}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        shift: event.target.value,
+                      }))
+                    }>
+                    <MenuItem value="">All</MenuItem>
+                    {shifts.map((shift) => (
+                      <MenuItem key={shift.id} value={shift.id}>
+                        {shift.shift_name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                <TextField
-                  select
+                <FormControl
                   size="small"
-                  label="Role"
-                  value={filters.role}
-                  sx={{ minWidth: 180 }}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      role: event.target.value,
-                    }))
-                  }>
-                  <MenuItem value="all">All</MenuItem>
-                  <MenuItem value="employee">Employee</MenuItem>
-                  <MenuItem value="admin">Admin</MenuItem>
-                  <MenuItem value="team_leader">Team Leader</MenuItem>
-                </TextField>
+                  variant="outlined"
+                  sx={{ minWidth: 180, bgcolor: "#fff", borderRadius: 1 }}>
+                  <InputLabel id="filter-role-label">Role</InputLabel>
+                  <Select
+                    labelId="filter-role-label"
+                    label="Role"
+                    value={filters.role}
+                    renderValue={(selected) => selected || ""}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        role: event.target.value,
+                      }))
+                    }>
+                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="employee">Employee</MenuItem>
+                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="team_leader">Team Leader</MenuItem>
+                  </Select>
+                </FormControl>
 
                 <Button
                   variant="outlined"
@@ -530,42 +554,40 @@ export default function AdminTable() {
                           </td>
 
                           <td className="text-center">
-                            <TextField
-                              size="small"
-                              select
-                              value={employeeShifts[employee.user_id] || ""}
-                              sx={{ minWidth: 180 }}
-                              onChange={(e) =>
-                                saveShift(employee.user_id, e.target.value)
-                              }>
-                              <MenuItem value="">Select Shift</MenuItem>
+                            <FormControl size="small" sx={{ minWidth: 180 }}>
+                              <Select
+                                value={employeeShifts[employee.user_id] || ""}
+                                onChange={(e) =>
+                                  saveShift(employee.user_id, e.target.value)
+                                }>
+                                <MenuItem value="">Select Shift</MenuItem>
 
-                              {shifts.map((shift) => (
-                                <MenuItem key={shift.id} value={shift.id}>
-                                  {shift.shift_name}
-                                </MenuItem>
-                              ))}
-                            </TextField>
+                                {shifts.map((shift) => (
+                                  <MenuItem key={shift.id} value={shift.id}>
+                                    {shift.shift_name}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
                           </td>
                           <td className="text-center">
-                            <TextField
-                              size="small"
-                              select
-                              value={employee.role || "employee"}
-                              sx={{ minWidth: 180 }}
-                              disabled={
-                                userRole === "team_leader" ||
-                                updatingUserId === employee.user_id
-                              }
-                              onChange={(event) =>
-                                handleRoleChange(employee, event.target.value)
-                              }>
-                              <MenuItem value="employee">Employee</MenuItem>
-                              <MenuItem value="admin">Admin</MenuItem>
-                              <MenuItem value="team_leader">
-                                Team Leader
-                              </MenuItem>
-                            </TextField>
+                            <FormControl size="small" sx={{ minWidth: 180 }}>
+                              <Select
+                                value={employee.role || "employee"}
+                                disabled={
+                                  userRole === "team_leader" ||
+                                  updatingUserId === employee.user_id
+                                }
+                                onChange={(event) =>
+                                  handleRoleChange(employee, event.target.value)
+                                }>
+                                <MenuItem value="employee">Employee</MenuItem>
+                                <MenuItem value="admin">Admin</MenuItem>
+                                <MenuItem value="team_leader">
+                                  Team Leader
+                                </MenuItem>
+                              </Select>
+                            </FormControl>
                           </td>
                         </tr>
                       );

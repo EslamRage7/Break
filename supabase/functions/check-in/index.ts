@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { user_id } = await req.json();
+    const { user_id, work_mode } = await req.json();
 
     const supabase = createClient(
       Deno.env.get("PROJECT_URL") ?? Deno.env.get("SUPABASE_URL")!,
@@ -23,11 +23,34 @@ Deno.serve(async (req) => {
 
     const now = new Date();
 
-    const cairoToday = new Intl.DateTimeFormat("en-CA", {
+    // A workday runs from 03:00 Cairo time until 02:59 the following day.
+    // This keeps after-midnight activity attached to the shift that started
+    // the previous evening.
+    const cairoParts = new Intl.DateTimeFormat("en-US", {
       timeZone: "Africa/Cairo",
-    }).format(now);
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .reduce((parts, part) => {
+        if (part.type !== "literal") parts[part.type] = part.value;
+        return parts;
+      }, {} as Record<string, string>);
 
-    const attendanceDate = cairoToday;
+    const cairoLocalTimestamp = Date.UTC(
+      Number(cairoParts.year),
+      Number(cairoParts.month) - 1,
+      Number(cairoParts.day),
+      Number(cairoParts.hour),
+    );
+    const attendanceDate = new Date(
+      cairoLocalTimestamp - 3 * 60 * 60 * 1000,
+    )
+      .toISOString()
+      .slice(0, 10);
     console.log("attendanceDate:", attendanceDate);
     console.log("user_id:", user_id);
 
@@ -53,22 +76,51 @@ Deno.serve(async (req) => {
 
     const shift = shiftData?.shifts;
     const shiftName = shift?.shift_name || "No Shift";
+    const normalizedWorkLocation = work_mode === "office" ? "Office" : "Remote";
 
-    const buildTimestampFromTime = (timeValue) => {
+    const getCairoOffsetMinutes = (date) => {
+      // compute offset (in minutes) between UTC and Cairo time for given date
+      const utcTs = date.getTime();
+      const cairo = new Date(
+        date.toLocaleString("en-US", { timeZone: "Africa/Cairo" }),
+      );
+      return Math.round((cairo.getTime() - utcTs) / 60000);
+    };
+
+    const buildTimestampFromTime = (timeValue, dayOffset = 0) => {
       const [h, m, s = "00"] = timeValue.split(":");
 
-      const date = new Date(now);
+      // attendanceDate is in format YYYY-MM-DD (Cairo date string)
+      const [year, month, day] = attendanceDate.split("-").map(Number);
 
-      date.setUTCHours(Number(h) - 3, Number(m), Number(s), 0);
+      // create UTC date matching the Cairo local date/time by using Date.UTC
+      const utcTs = Date.UTC(
+        year,
+        month - 1,
+        day + dayOffset,
+        Number(h),
+        Number(m),
+        Number(s || "0"),
+      );
 
-      return date.toISOString();
+      // compute Cairo offset for this date and convert to UTC timestamp
+      const offsetMinutes = getCairoOffsetMinutes(new Date(utcTs));
+
+      // cairo local -> UTC = local time - offset
+      const correctedUtcTs = utcTs - offsetMinutes * 60000;
+
+      return new Date(correctedUtcTs).toISOString();
     };
     const defaultShiftEnd = new Date(now.getTime() + 8 * 60 * 60 * 1000);
     const shiftStartTime = shift?.start_time
       ? buildTimestampFromTime(shift.start_time)
       : now.toISOString();
+    const isOvernightShift =
+      !!shift?.start_time &&
+      !!shift?.end_time &&
+      shift.end_time <= shift.start_time;
     const shiftEndTime = shift?.end_time
-      ? buildTimestampFromTime(shift.end_time)
+      ? buildTimestampFromTime(shift.end_time, isOvernightShift ? 1 : 0)
       : defaultShiftEnd.toISOString();
 
     const checkIn = new Date(now);
@@ -161,6 +213,7 @@ Deno.serve(async (req) => {
         late_minutes: lateMinutes,
 
         status: "Working",
+        work_location: normalizedWorkLocation,
       })
       .select()
       .single();

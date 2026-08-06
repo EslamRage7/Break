@@ -8,6 +8,33 @@ import { Box, Button, Chip, CircularProgress, Typography } from "@mui/material";
 import Swal from "sweetalert2";
 import Grow from "@mui/material/Grow";
 
+const getOperationalDayKey = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(date)
+    .reduce((result, part) => {
+      if (part.type !== "literal") result[part.type] = part.value;
+      return result;
+    }, {});
+
+  return new Date(
+    Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour) - 3,
+    ),
+  )
+    .toISOString()
+    .slice(0, 10);
+};
+
 function Home() {
   const [firstName, setFirstName] = useState("");
   const [role, setRole] = useState("");
@@ -17,15 +44,28 @@ function Home() {
   const [showCompletedMessage, setShowCompletedMessage] = useState(false);
   const [attendanceCompletedToday, setAttendanceCompletedToday] =
     useState(false);
+  const [attendanceStatus, setAttendanceStatus] = useState("Not Checked In");
   const [breakRefreshKey, setBreakRefreshKey] = useState(0);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [workMode, setWorkMode] = useState(() => {
+    if (typeof window === "undefined") return "office";
+
+    const savedMode = window.localStorage.getItem("work_mode");
+    const savedDay = window.localStorage.getItem("work_mode_day");
+    const today = getOperationalDayKey();
+
+    if (savedMode && savedDay === today) {
+      return savedMode === "remote" ? "remote" : "office";
+    }
+
+    return "office";
+  });
+  const [initializedWorkMode, setInitializedWorkMode] = useState(true);
   const dayKeyRef = useRef("");
   const autoCheckoutTriggeredRef = useRef("");
 
-  const getTodayKey = () =>
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Africa/Cairo",
-    }).format(new Date());
+  // The operational day changes at 03:00 Cairo time, not midnight.
+  const getTodayKey = getOperationalDayKey;
 
   const resetCompletedMessageState = useCallback(() => {
     setShowCompletedMessage(false);
@@ -72,18 +112,31 @@ function Home() {
     }
 
     setIsCheckedIn(hasOpenAttendance);
+    setAttendanceStatus(
+      !!latestAttendance && latestAttendance.check_out === null
+        ? "Working"
+        : !!latestAttendance && latestAttendance.check_out !== null
+          ? "Completed"
+          : "Not Checked In",
+    );
     setAttendanceCompletedToday(
       !!latestAttendance && latestAttendance.check_out !== null,
     );
   }, []);
 
   const performCheckout = useCallback(
-    async (userId, source = "user", checkoutTime = null) => {
+    async (
+      userId,
+      source = "user",
+      checkoutTime = null,
+      workModeValue = null,
+    ) => {
       const result = await supabase.functions.invoke("check-out", {
         body: {
           user_id: userId,
           source,
           checkout_time: checkoutTime,
+          work_mode: workModeValue,
         },
       });
 
@@ -102,6 +155,32 @@ function Home() {
     [],
   );
 
+  const promptWorkModeSelection = async () => {
+    const result = await Swal.fire({
+      title: "Choose your work mode",
+      text: "Select where you'll work today.",
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Office",
+      denyButtonText: "Remote",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#00a6eb",
+      fontWeight: 700,
+      denyButtonColor: "#0f766e",
+      reverseButtons: true,
+    });
+
+    if (
+      result.isDismissed ||
+      (result.isDenied === false && result.isConfirmed === false)
+    ) {
+      return null;
+    }
+
+    return result.isConfirmed ? "office" : "remote";
+  };
+
   const handleAttendance = async () => {
     try {
       setLoadingAttendance(true);
@@ -119,7 +198,25 @@ function Home() {
         return;
       }
 
+      if (!hasShift && role !== "admin") {
+        Swal.fire({
+          icon: "warning",
+          title: "Shift Required",
+          text: "You must be assigned a shift before checking in.",
+        });
+        return;
+      }
+
       const wasCheckedIn = isCheckedIn; // حفظ الحالة قبل العملية
+
+      if (attendanceCompletedToday && !isCheckedIn) {
+        Swal.fire({
+          icon: "info",
+          title: "Already Completed",
+          text: "Your attendance is already completed for today.",
+        });
+        return;
+      }
 
       if (isCheckedIn) {
         const confirmResult = await Swal.fire({
@@ -138,13 +235,26 @@ function Home() {
       }
 
       const functionName = isCheckedIn ? "check-out" : "check-in";
+      let selectedWorkMode = workMode;
+
+      if (!isCheckedIn) {
+        const chosenMode = await promptWorkModeSelection();
+
+        if (chosenMode === null) {
+          return;
+        }
+
+        selectedWorkMode = chosenMode;
+        setWorkMode(chosenMode);
+      }
 
       if (isCheckedIn) {
-        await performCheckout(user.id, "user");
+        await performCheckout(user.id, "user", null, selectedWorkMode);
       } else {
         const result = await supabase.functions.invoke(functionName, {
           body: {
             user_id: user.id,
+            work_mode: selectedWorkMode,
           },
         });
 
@@ -227,7 +337,7 @@ function Home() {
 
       const { data: openAttendance, error } = await supabase
         .from("attendance")
-        .select("id, shift_end")
+        .select("id, shift_start, shift_end")
         .eq("user_id", user.id)
         .is("check_out", null)
         .order("check_in", { ascending: false })
@@ -236,12 +346,34 @@ function Home() {
 
       if (error || !openAttendance?.shift_end) return;
 
-      const shiftEnd = new Date(openAttendance.shift_end);
-      if (Number.isNaN(shiftEnd.getTime())) return;
+      const shiftEndUtc = new Date(openAttendance.shift_end);
+      if (Number.isNaN(shiftEndUtc.getTime())) return;
+
+      const shiftStartUtc = openAttendance.shift_start
+        ? new Date(openAttendance.shift_start)
+        : shiftEndUtc;
 
       const now = new Date();
+
+      // determine Cairo-local hours for shift start/end
+      const fmtHour = (d) =>
+        Number(
+          new Intl.DateTimeFormat("en", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: "Africa/Cairo",
+          }).format(d),
+        );
+
+      const shiftStartCairoHour = fmtHour(shiftStartUtc);
+      const normalizedShiftEnd =
+        shiftEndUtc <= shiftStartUtc
+          ? new Date(shiftEndUtc.getTime() + 24 * 60 * 60 * 1000)
+          : shiftEndUtc;
+      // Employees are automatically checked out two hours after their shift
+      // ends. The operational-day reset at 03:00 is handled separately.
       const autoCheckoutThreshold = new Date(
-        shiftEnd.getTime() + 2 * 60 * 60 * 1000,
+        normalizedShiftEnd.getTime() + 2 * 60 * 60 * 1000,
       );
 
       if (now < autoCheckoutThreshold) return;
@@ -250,7 +382,11 @@ function Home() {
       autoCheckoutTriggeredRef.current = openAttendance.id;
 
       try {
-        await performCheckout(user.id, "system", shiftEnd.toISOString());
+        await performCheckout(
+          user.id,
+          "system",
+          normalizedShiftEnd.toISOString(),
+        );
 
         if (!isMounted) return;
 
@@ -290,6 +426,13 @@ function Home() {
 
     return () => clearTimeout(timer);
   }, [showCompletedMessage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("work_mode", workMode);
+    window.localStorage.setItem("work_mode_day", getTodayKey());
+  }, [workMode]);
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -328,13 +471,35 @@ function Home() {
   }, []);
 
   const navigate = useNavigate();
-  console.log({
-    isCheckedIn,
-    attendanceCompletedToday,
-    hasShift,
-    role,
-    loadingAttendance,
-  });
+  const dashboardSubText =
+    !hasShift && role !== "admin"
+      ? "Your dashboard is ready. Contact your administrator to get assigned to a shift."
+      : attendanceCompletedToday
+        ? "Your check-out has been recorded for today."
+        : isCheckedIn
+          ? "You're checked in for today. Manage your workday and break sessions from here."
+          : "Start your workday by checking in, then manage your breaks throughout the day.";
+  const attendanceTitle =
+    attendanceStatus === "Working"
+      ? "Have a productive day!"
+      : attendanceStatus === "Completed"
+        ? "Check-out recorded"
+        : "Ready to start your day";
+  const attendanceHelpText = attendanceCompletedToday
+    ? "Your check-out has been registered for today."
+    : isCheckedIn
+      ? "Tap below to register your check-out for today."
+      : "Tap below to register your check-in for today.";
+  const attendanceChipLabel = attendanceCompletedToday
+    ? "Checked Out"
+    : isCheckedIn
+      ? "Checked In"
+      : "Not Checked In";
+  const attendanceButtonText = attendanceCompletedToday
+    ? "Checked Out"
+    : isCheckedIn
+      ? "Check Out"
+      : "Check In";
   return (
     <>
       <div className="dashboard-layout">
@@ -350,15 +515,10 @@ function Home() {
               </Typography>
 
               <Typography variant="body2" sx={{ mt: 0.5, color: "#64748b" }}>
-                {!hasShift && role !== "admin"
-                  ? "Your dashboard is ready. Contact your administrator to get assigned to a shift."
-                  : attendanceCompletedToday
-                    ? "Your workday has been completed successfully. We look forward to seeing you again tomorrow."
-                    : isCheckedIn
-                      ? "You're checked in for today. Manage your workday and break sessions from here."
-                      : "Start your workday by checking in, then manage your breaks throughout the day."}
+                {dashboardSubText}
               </Typography>
             </div>
+
             {showCompletedMessage ? (
               <Grow
                 in={showCompletedMessage}
@@ -377,14 +537,15 @@ function Home() {
                   <Typography
                     variant="h6"
                     sx={{ fontWeight: 700, color: "#0f766e" }}>
-                    Work completed
+                    Check-out recorded
                   </Typography>
 
                   <Typography
                     variant="body1"
                     color="text.secondary"
                     sx={{ mt: 1 }}>
-                    You’ve finished your work for today. Have a wonderful day!
+                    Your check-out has been registered for today. Have a
+                    wonderful day!
                   </Typography>
                 </Box>
               </Grow>
@@ -428,20 +589,19 @@ function Home() {
                         variant="h6"
                         sx={{
                           fontWeight: 700,
-                          color: isCheckedIn ? "#0f766e" : "#334155",
+                          color:
+                            attendanceStatus === "Working"
+                              ? "#0f766e"
+                              : "#334155",
                         }}>
-                        {isCheckedIn
-                          ? "You are checked in today"
-                          : "Ready to start your day"}
+                        {attendanceTitle}
                       </Typography>
 
                       <Typography
                         variant="overline"
                         color="text.secondary"
                         sx={{ mt: 0.5 }}>
-                        {isCheckedIn
-                          ? "Tap below when you finish work to check out."
-                          : "Tap below to register your check-in for today."}
+                        {attendanceHelpText}
                       </Typography>
                     </Box>
 
@@ -454,7 +614,7 @@ function Home() {
                       }}>
                       <Chip
                         className="attendance-chip"
-                        label={isCheckedIn ? "Checked In" : "Not Checked In"}
+                        label={attendanceChipLabel}
                         color={isCheckedIn ? "success" : "default"}
                         variant={isCheckedIn ? "filled" : "outlined"}
                       />
@@ -463,7 +623,11 @@ function Home() {
                         variant="contained"
                         color={isCheckedIn ? "error" : "success"}
                         onClick={handleAttendance}
-                        disabled={loadingAttendance}
+                        disabled={
+                          loadingAttendance ||
+                          attendanceCompletedToday ||
+                          (!hasShift && role !== "admin")
+                        }
                         sx={{
                           minWidth: 140,
                           px: 2.5,
@@ -474,10 +638,8 @@ function Home() {
                         }}>
                         {loadingAttendance ? (
                           <CircularProgress size={22} color="inherit" />
-                        ) : isCheckedIn ? (
-                          "Check Out"
                         ) : (
-                          "Check In"
+                          attendanceButtonText
                         )}
                       </Button>
                     </Box>

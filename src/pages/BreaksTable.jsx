@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   CircularProgress,
@@ -15,6 +15,7 @@ import Sidebar from "../components/Sidebar";
 import { supabase } from "../supabaseClient";
 import Footer from "../components/Footer";
 import Typography from "@mui/material/Typography";
+import { getBreakLimitForDepartment } from "../utils/breakUtils";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -58,20 +59,60 @@ const formatDateTime = (value) => {
 };
 
 const getEndTimeValue = (item) => {
-  if (item.is_paused && item.paused_at) {
+  if (item?.paused_at) {
     return item.paused_at;
   }
 
   return item.end_time || "";
 };
 
+const getSegmentDay = (item) => {
+  if (!item?.start_time) return "";
+
+  const date = new Date(item.start_time);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+  }).format(date);
+};
+
+const getSegmentUsedSeconds = (item) => {
+  const hasStoredSeconds =
+    item?.duration_seconds !== null &&
+    item?.duration_seconds !== undefined &&
+    item?.duration_seconds !== "";
+
+  if (hasStoredSeconds) {
+    const storedSeconds = Number(item.duration_seconds);
+    if (Number.isFinite(storedSeconds) && storedSeconds >= 0) {
+      return Math.floor(storedSeconds);
+    }
+  }
+
+  if (!item || !item.start_time) return 0;
+
+  const start = new Date(item.start_time);
+  if (Number.isNaN(start.getTime())) return 0;
+
+  const endText = getEndTimeValue(item);
+  const end = endText ? new Date(endText) : new Date();
+  if (Number.isNaN(end.getTime())) return 0;
+
+  const diffMs = end.getTime() - start.getTime();
+  return Math.max(0, Math.floor(diffMs / 1000));
+};
+
+const getTodayDate = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+  }).format(new Date());
+
 const formatDuration = (minutes, seconds) => {
   if (!minutes && !seconds) return "-";
 
-  // A break session is limited to 45 minutes. This also keeps previously
-  // corrupted records (for example 405 minutes) from being shown as usage.
-  const totalMinutes = Math.min(45, Math.max(0, Number(minutes) || 0));
-  const totalSeconds = Math.max(0, Number(seconds) || 0);
+  const totalMinutes = minutes || 0;
+  const totalSeconds = seconds || 0;
 
   if (!totalMinutes) return `${totalSeconds}s`;
   if (!totalSeconds) return `${totalMinutes}m`;
@@ -79,10 +120,65 @@ const formatDuration = (minutes, seconds) => {
   return `${totalMinutes}m ${totalSeconds}s`;
 };
 
+const departmentNames = {
+  CS: "Call Center",
+  GD: "Graphic Design",
+  DE: "Data Entry",
+  DV: "Development",
+  PK: "Packaging",
+  MG: "Management",
+};
+
+const normalizeDepartmentValue = (value) => {
+  const text = `${value || ""}`.trim().toLowerCase();
+  if (!text) return "";
+
+  const compact = text.replace(/[^a-z0-9]+/g, "");
+
+  const departmentCode = Object.keys(departmentNames).find((key) => {
+    return key.toLowerCase() === text || key.toLowerCase() === compact;
+  });
+
+  if (departmentCode) return departmentCode.toLowerCase();
+
+  const labelMatch = Object.entries(departmentNames).find(([, label]) => {
+    const normalizedLabel = `${label || ""}`
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+    return normalizedLabel === compact;
+  });
+
+  return labelMatch ? labelMatch[0].toLowerCase() : compact;
+};
+
+const getDepartmentLabel = (value) => {
+  const text = `${value || ""}`.trim();
+  if (!text) return "-";
+
+  const normalizedText = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+  const directMatch = Object.entries(departmentNames).find(([key]) => {
+    return key.toLowerCase() === normalizedText;
+  });
+  if (directMatch) return directMatch[1];
+
+  const labelMatch = Object.entries(departmentNames).find(([, label]) => {
+    const normalizedLabel = `${label || ""}`
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+    return normalizedLabel === normalizedText;
+  });
+  return labelMatch ? labelMatch[1] : text;
+};
+
 export default function BreaksTable() {
   const [breaks, setBreaks] = useState([]);
+  const [breakSessions, setBreakSessions] = useState([]);
   const [nameQuery, setNameQuery] = useState("");
   const [dayQuery, setDayQuery] = useState("");
+  const [departmentQuery, setDepartmentQuery] = useState("");
   const [statusQuery, setStatusQuery] = useState("all");
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +207,49 @@ export default function BreaksTable() {
       return acc;
     }, {});
   }, [employees]);
+
+  const employeeById = useMemo(() => {
+    return employees.reduce((acc, employee) => {
+      if (employee?.user_id) acc[employee.user_id] = employee;
+      return acc;
+    }, {});
+  }, [employees]);
+
+  const departmentOptions = useMemo(() => {
+    const map = new Map();
+
+    (employees || []).forEach((employee) => {
+      const code = normalizeDepartmentValue(employee?.department);
+      if (!code) return;
+      if (!map.has(code)) {
+        const label =
+          departmentNames[code.toUpperCase()] ||
+          getDepartmentLabel(employee?.department);
+        map.set(code, label);
+      }
+    });
+
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [employees]);
+
+  const getDisplayDurationMinutes = (item) => {
+    const employee = employeeById[item?.user_id];
+    const durationMinutes = Number(item?.duration_minutes);
+    const isCallCenter =
+      getBreakLimitForDepartment(employee?.department) === 60;
+
+    if (isCallCenter) {
+      return 60;
+    }
+
+    if (Number.isFinite(durationMinutes) && durationMinutes > 0) {
+      return durationMinutes;
+    }
+
+    return Math.floor((Number(item?.duration_seconds) || 0) / 60);
+  };
 
   useEffect(() => {
     const loadBreaks = async () => {
@@ -154,7 +293,8 @@ export default function BreaksTable() {
         }
 
         let employeeRows = adminData?.employees || [];
-        let breakRows = adminData?.breaks || [];
+        let breakRows = adminData?.break_segments || [];
+        let sessionRows = adminData?.breaks || [];
 
         // Team Leader => يشوف فريقه فقط
         if (currentEmployee?.role === "team_leader") {
@@ -165,10 +305,12 @@ export default function BreaksTable() {
           const teamIds = employeeRows.map((e) => e.user_id);
 
           breakRows = breakRows.filter((b) => teamIds.includes(b.user_id));
+          sessionRows = sessionRows.filter((s) => teamIds.includes(s.user_id));
         }
 
         setEmployees(employeeRows);
         setBreaks(breakRows);
+        setBreakSessions(sessionRows);
       } catch (err) {
         console.error(err);
         showMessage(err.message || "Failed to load breaks table", "error");
@@ -180,17 +322,51 @@ export default function BreaksTable() {
     loadBreaks();
   }, []);
 
-  const getEffectiveStatus = (item) => {
-    if (item?.is_paused) return "paused";
+  const lastSegmentByUser = useMemo(() => {
+    return (breaks || []).reduce((acc, segment) => {
+      if (!segment?.user_id) return acc;
+      const current = acc[segment.user_id];
+      if (!current) {
+        acc[segment.user_id] = segment;
+        return acc;
+      }
 
-    const status = (item?.status || "").toLowerCase();
-    if (status === "completed") return "completed";
-    if (status === "active") return "active";
-    return status || "active";
-  };
+      const currentTime = new Date(current.start_time || 0).getTime();
+      const segmentTime = new Date(segment.start_time || 0).getTime();
+      if (segmentTime > currentTime) {
+        acc[segment.user_id] = segment;
+      }
+      return acc;
+    }, {});
+  }, [breaks]);
+
+  const breakSessionByUser = useMemo(() => {
+    return (breakSessions || []).reduce((acc, session) => {
+      if (session?.user_id) {
+        acc[session.user_id] = session;
+      }
+      return acc;
+    }, {});
+  }, [breakSessions]);
+
+  const getEffectiveStatus = useCallback(
+    (item) => {
+      const session = breakSessionByUser[item?.user_id] || item;
+      if (session?.is_paused) return "paused";
+
+      const status = (session?.status || item?.status || "").toLowerCase();
+      if (status === "completed") return "completed";
+      if (status === "active") return "active";
+
+      if (item?.paused_at) return "paused";
+      if (item?.end_time) return "completed";
+      return "active";
+    },
+    [breakSessionByUser],
+  );
 
   const filteredBreaks = useMemo(() => {
-    return (breaks || []).filter((item) => {
+    return (breakSessions || []).filter((item) => {
       // filter by selected employee id (nameQuery holds user_id when selected)
       if (nameQuery) {
         if (item.user_id !== nameQuery) return false;
@@ -217,24 +393,73 @@ export default function BreaksTable() {
         }
       }
 
+      // filter by department
+      if (departmentQuery) {
+        const employee = employeeById[item?.user_id];
+        const employeeDeptValue = normalizeDepartmentValue(
+          employee?.department,
+        );
+        const filterDeptValue = normalizeDepartmentValue(departmentQuery);
+
+        if (!employee || employeeDeptValue !== filterDeptValue) return false;
+      }
+
       return true;
     });
-  }, [breaks, nameQuery, dayQuery, statusQuery]);
+  }, [
+    breakSessions,
+    employeeById,
+    nameQuery,
+    dayQuery,
+    statusQuery,
+    departmentQuery,
+    getEffectiveStatus,
+  ]);
 
   const latestBreaks = useMemo(() => {
-    const seen = new Set();
     return (filteredBreaks || [])
       .slice()
-      .sort((a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0))
-      .filter((item) => {
-        if (seen.has(item.user_id)) return false;
-        seen.add(item.user_id);
-        return true;
-      });
+      .sort(
+        (a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0),
+      );
   }, [filteredBreaks]);
 
+  const usedMinutesBySession = useMemo(() => {
+    const usage = {};
+
+    (breaks || []).forEach((segment) => {
+      const sessionId = segment?.break_session_id;
+      if (!sessionId) return;
+
+      usage[sessionId] =
+        (usage[sessionId] || 0) + getSegmentUsedSeconds(segment);
+    });
+
+    Object.keys(usage).forEach((key) => {
+      usage[key] = Math.floor(usage[key] / 60);
+    });
+
+    return usage;
+  }, [breaks]);
+
+  const getUsedMinutes = (item) => {
+    if (!item?.id) return 0;
+
+    const usedMinutesValue = Number(item.used_minutes);
+    if (Number.isFinite(usedMinutesValue) && usedMinutesValue >= 0) {
+      return usedMinutesValue;
+    }
+
+    const usedSecondsValue = Number(item.used_seconds);
+    if (Number.isFinite(usedSecondsValue) && usedSecondsValue >= 0) {
+      return Math.floor(usedSecondsValue / 60);
+    }
+
+    return usedMinutesBySession[item.id] || 0;
+  };
+
   const employeesInBreaks = useMemo(() => {
-    const ids = new Set((breaks || []).map((b) => b.user_id));
+    const ids = new Set((breakSessions || []).map((b) => b.user_id));
     return (employees || [])
       .filter((e) => ids.has(e.user_id))
       .sort((a, b) => {
@@ -246,15 +471,15 @@ export default function BreaksTable() {
           .toLowerCase();
         return A.localeCompare(B);
       });
-  }, [breaks, employees]);
+  }, [breakSessions, employees]);
 
   const availableDates = useMemo(() => {
     const set = new Set();
-    (breaks || []).forEach((b) => {
+    (breakSessions || []).forEach((b) => {
       if (b.start_time) set.add(b.start_time.split("T")[0]);
     });
     return Array.from(set).sort((a, b) => b.localeCompare(a));
-  }, [breaks]);
+  }, [breakSessions]);
 
   const getStatusLabel = (item) => {
     const effectiveStatus = getEffectiveStatus(item);
@@ -350,10 +575,28 @@ export default function BreaksTable() {
                     label="Status"
                     value={statusQuery}
                     onChange={(e) => setStatusQuery(e.target.value)}>
-                    <MenuItem value="all">All statuses</MenuItem>
+                    <MenuItem value="all">All </MenuItem>
                     <MenuItem value="active">Active</MenuItem>
                     <MenuItem value="completed">Completed</MenuItem>
                     <MenuItem value="paused">Paused</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl size="small" style={{ minWidth: 180 }}>
+                  <InputLabel id="department-select-label">
+                    Department
+                  </InputLabel>
+                  <Select
+                    labelId="department-select-label"
+                    label="Department"
+                    value={departmentQuery}
+                    onChange={(e) => setDepartmentQuery(e.target.value)}>
+                    <MenuItem value="">All</MenuItem>
+                    {departmentOptions.map((department) => (
+                      <MenuItem key={department.value} value={department.value}>
+                        {department.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
 
@@ -363,7 +606,8 @@ export default function BreaksTable() {
                   onClick={() => {
                     setNameQuery("");
                     setDayQuery("");
-                    setStatusQuery("all");
+                    setStatusQuery("");
+                    setDepartmentQuery("");
                   }}
                   sx={{
                     height: 40,
@@ -381,6 +625,7 @@ export default function BreaksTable() {
                     <tr>
                       <th>#</th>
                       <th>Name</th>
+                      <th className="text-center">Department</th>
                       <th className="text-center">Start Time</th>
                       <th className="text-center">End Time</th>
                       <th className="text-center">Duration</th>
@@ -404,7 +649,7 @@ export default function BreaksTable() {
                           <td>
                             <strong>{index + 1}</strong>
                           </td>
-                          <td>
+                          <td className="text-capitalize name-link-cell">
                             <button
                               className="text-capitalize"
                               type="button"
@@ -424,29 +669,38 @@ export default function BreaksTable() {
                             </button>
                           </td>
                           <td className="text-center">
+                            {getDepartmentLabel(
+                              employeeById[item.user_id]?.department,
+                            )}
+                          </td>
+                          <td className="text-center">
                             {formatDateTime(item.start_time)}
                           </td>
                           <td className="text-center">
                             {formatDateTime(getEndTimeValue(item))}
                           </td>
                           <td className="text-center">
-                            {formatDuration(item.duration_minutes)}
+                            {getDisplayDurationMinutes(item)}m
                           </td>
                           <td className="text-center">
-                            {formatDuration(item.used_minutes)}
+                            {formatDuration(getUsedMinutes(item))}
                           </td>
                           <td className="text-center">
-                            <span
-                              className={`table-pill ${
-                                item.is_paused
+                            {(() => {
+                              const effectiveStatus = getEffectiveStatus(item);
+                              const pillClass =
+                                effectiveStatus === "paused"
                                   ? "table-pill-warning"
-                                  : (item.status || "").toLowerCase() ===
-                                      "active"
+                                  : effectiveStatus === "active"
                                     ? "table-pill-success"
-                                    : "table-pill-neutral"
-                              }`}>
-                              {getStatusLabel(item)}
-                            </span>
+                                    : "table-pill-neutral";
+
+                              return (
+                                <span className={`table-pill ${pillClass}`}>
+                                  {getStatusLabel(item)}
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))

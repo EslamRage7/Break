@@ -59,6 +59,67 @@ const formatMinutesDuration = (minutes) => {
   return `${mins}m`;
 };
 
+const departmentNames = {
+  CS: "Call Center",
+  GD: "Graphic Design",
+  DE: "Data Entry",
+  DV: "Development",
+  PK: "Packaging",
+  MG: "Management",
+};
+
+const getDepartmentCode = (value) => {
+  const text = `${value || ""}`.trim();
+  if (!text) return "";
+
+  // direct key match (case-insensitive)
+  const keyMatch = Object.keys(departmentNames).find(
+    (k) => k.toLowerCase() === text.toLowerCase(),
+  );
+  if (keyMatch) return keyMatch;
+
+  // label match (case-insensitive)
+  const labelMatch = Object.entries(departmentNames).find(
+    ([, label]) => `${label || ""}`.trim().toLowerCase() === text.toLowerCase(),
+  );
+  if (labelMatch) return labelMatch[0];
+
+  // compact normalized match
+  const compact = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const compactMatch = Object.entries(departmentNames).find(([, label]) => {
+    const normLabel = `${label || ""}`
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+    return normLabel === compact || label?.toLowerCase() === compact;
+  });
+  if (compactMatch) return compactMatch[0];
+
+  // fallback to original value for custom departments
+  return text;
+};
+
+const getDepartmentLabel = (value) => {
+  const text = `${value || ""}`.trim();
+  if (!text) return "-";
+
+  const normalizedText = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+  const directMatch = Object.entries(departmentNames).find(([key]) => {
+    return key.toLowerCase() === normalizedText;
+  });
+  if (directMatch) return directMatch[1];
+
+  const labelMatch = Object.entries(departmentNames).find(([, label]) => {
+    const normalizedLabel = `${label || ""}`
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+    return normalizedLabel === normalizedText;
+  });
+  return labelMatch ? labelMatch[1] : text;
+};
+
 export default function AttendanceTable() {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
@@ -68,8 +129,8 @@ export default function AttendanceTable() {
   const [canManageAttendance, setCanManageAttendance] = useState(false);
   const [nameQuery, setNameQuery] = useState("");
   const [departmentQuery, setDepartmentQuery] = useState("");
-  const [roleQuery, setRoleQuery] = useState("");
   const [dateQuery, setDateQuery] = useState("");
+  const [monthQuery, setMonthQuery] = useState("");
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -108,7 +169,6 @@ export default function AttendanceTable() {
         if (!canManage) {
           setNameQuery("");
           setDepartmentQuery("");
-          setRoleQuery("");
           setDateQuery("");
         }
 
@@ -161,7 +221,6 @@ export default function AttendanceTable() {
     `,
               { count: "exact" },
             )
-            .not("check_in", "is", null)
             .order("attendance_date", { ascending: false })
             .order("created_at", { ascending: false });
 
@@ -189,7 +248,7 @@ export default function AttendanceTable() {
                 shift_name: "-",
                 check_in: null,
                 check_out: null,
-                status: "Absent",
+                status: "-",
               },
           );
 
@@ -216,12 +275,11 @@ export default function AttendanceTable() {
     `,
             )
             .eq("user_id", user.id)
-            .not("check_in", "is", null)
             .order("created_at", { ascending: false });
 
           if (error) throw error;
 
-          logsData = data;
+          logsData = data || [];
         }
 
         setLogs(logsData || []);
@@ -258,15 +316,30 @@ export default function AttendanceTable() {
 
     if (!canManageAttendance) {
       return baseLogs.filter((log) => {
-        if (!dateQuery) {
-          return true;
+        if (dateQuery) {
+          const logDate = new Date(log.attendance_date)
+            .toISOString()
+            .split("T")[0];
+          if (logDate !== dateQuery) {
+            return false;
+          }
         }
 
-        const logDate = new Date(log.attendance_date)
-          .toISOString()
-          .split("T")[0];
+        if (monthQuery) {
+          const logMonth = new Date(log.attendance_date);
+          if (Number.isNaN(logMonth.getTime())) return false;
+          const selectedMonth = monthQuery.split("-");
+          const year = Number(selectedMonth[0]);
+          const month = Number(selectedMonth[1]) - 1;
+          if (
+            logMonth.getFullYear() !== year ||
+            logMonth.getMonth() !== month
+          ) {
+            return false;
+          }
+        }
 
-        return logDate === dateQuery;
+        return true;
       });
     }
 
@@ -283,11 +356,10 @@ export default function AttendanceTable() {
         return false;
       }
 
-      if (departmentQuery && employee?.department !== departmentQuery) {
-        return false;
-      }
-
-      if (roleQuery && employee?.role !== roleQuery) {
+      if (
+        departmentQuery &&
+        getDepartmentCode(employee?.department) !== departmentQuery
+      ) {
         return false;
       }
 
@@ -300,6 +372,17 @@ export default function AttendanceTable() {
         }
       }
 
+      if (monthQuery) {
+        const logMonth = new Date(log.attendance_date);
+        if (Number.isNaN(logMonth.getTime())) return false;
+        const selectedMonth = monthQuery.split("-");
+        const year = Number(selectedMonth[0]);
+        const month = Number(selectedMonth[1]) - 1;
+        if (logMonth.getFullYear() !== year || logMonth.getMonth() !== month) {
+          return false;
+        }
+      }
+
       seenUsers.add(log.user_id);
       return true;
     });
@@ -308,8 +391,8 @@ export default function AttendanceTable() {
     employeeLookup,
     nameQuery,
     departmentQuery,
-    roleQuery,
     dateQuery,
+    monthQuery,
     canManageAttendance,
   ]);
 
@@ -325,22 +408,20 @@ export default function AttendanceTable() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [employees]);
 
-  const departments = useMemo(() => {
-    return Array.from(
-      new Set(
-        (employees || [])
-          .map((employee) => employee.department)
-          .filter(Boolean),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
-  }, [employees]);
+  const departmentOptions = useMemo(() => {
+    const map = new Map();
+    (employees || []).forEach((employee) => {
+      const code = getDepartmentCode(employee?.department);
+      if (!code) return;
+      if (!map.has(code)) {
+        const label = departmentNames[code] || employee.department || code;
+        map.set(code, label);
+      }
+    });
 
-  const roles = useMemo(() => {
-    return Array.from(
-      new Set(
-        (employees || []).map((employee) => employee.role).filter(Boolean),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [employees]);
 
   const availableDates = useMemo(() => {
@@ -356,11 +437,26 @@ export default function AttendanceTable() {
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [logs]);
 
+  const availableMonths = useMemo(() => {
+    const set = new Set();
+    (logs || []).forEach((log) => {
+      if (log.attendance_date) {
+        const date = new Date(log.attendance_date);
+        if (!Number.isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = `${date.getMonth() + 1}`.padStart(2, "0");
+          set.add(`${year}-${month}`);
+        }
+      }
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [logs]);
+
   const handleClearFilters = () => {
     setNameQuery("");
     setDepartmentQuery("");
-    setRoleQuery("");
     setDateQuery("");
+    setMonthQuery("");
   };
 
   return (
@@ -411,7 +507,7 @@ export default function AttendanceTable() {
                         label="Employee"
                         value={nameQuery}
                         onChange={(event) => setNameQuery(event.target.value)}>
-                        <MenuItem value="">All employees</MenuItem>
+                        <MenuItem value="">All</MenuItem>
                         {employeeOptions.map((employee) => (
                           <MenuItem value={employee.value} key={employee.value}>
                             {employee.label}
@@ -431,26 +527,12 @@ export default function AttendanceTable() {
                         onChange={(event) =>
                           setDepartmentQuery(event.target.value)
                         }>
-                        <MenuItem value="">All departments</MenuItem>
-                        {departments.map((department) => (
-                          <MenuItem value={department} key={department}>
-                            {department}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl size="small" style={{ minWidth: 180 }}>
-                      <InputLabel id="role-filter-label">Role</InputLabel>
-                      <Select
-                        labelId="role-filter-label"
-                        label="Role"
-                        value={roleQuery}
-                        onChange={(event) => setRoleQuery(event.target.value)}>
-                        <MenuItem value="">All roles</MenuItem>
-                        {roles.map((role) => (
-                          <MenuItem value={role} key={role}>
-                            {role}
+                        <MenuItem value="">All</MenuItem>
+                        {departmentOptions.map((department) => (
+                          <MenuItem
+                            value={department.value}
+                            key={department.value}>
+                            {department.label}
                           </MenuItem>
                         ))}
                       </Select>
@@ -477,6 +559,26 @@ export default function AttendanceTable() {
                   </Select>
                 </FormControl>
 
+                <FormControl size="small" style={{ minWidth: 180 }}>
+                  <InputLabel id="month-filter-label">Month</InputLabel>
+                  <Select
+                    labelId="month-filter-label"
+                    label="Month"
+                    value={monthQuery}
+                    onChange={(event) => setMonthQuery(event.target.value)}>
+                    <MenuItem value="">All months</MenuItem>
+                    {availableMonths.map((month) => (
+                      <MenuItem value={month} key={month}>
+                        {new Intl.DateTimeFormat("en", {
+                          month: "long",
+                          year: "numeric",
+                          timeZone: "Africa/Cairo",
+                        }).format(new Date(`${month}-01`))}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
                 <Button
                   variant="outlined"
                   size="small"
@@ -497,7 +599,11 @@ export default function AttendanceTable() {
                     <tr>
                       <th>#</th>
                       {canManageAttendance && <th>Name</th>}
+                      {canManageAttendance && (
+                        <th className="text-center">Department</th>
+                      )}
                       <th className="text-center">Shift</th>
+
                       <th className="text-center">Check In</th>
                       <th className="text-center">Check Out</th>
                     </tr>
@@ -505,7 +611,7 @@ export default function AttendanceTable() {
                   <tbody>
                     {filteredLogs.length === 0 ? (
                       <tr>
-                        <td colSpan={canManageAttendance ? 5 : 4}>
+                        <td colSpan={canManageAttendance ? 6 : 4}>
                           {canManageAttendance
                             ? "No attendance logs found."
                             : "No attendance logs found for your account."}
@@ -519,7 +625,7 @@ export default function AttendanceTable() {
                           </td>
 
                           {canManageAttendance && (
-                            <td className="text-capitalize">
+                            <td className="text-capitalize name-link-cell">
                               <span
                                 onClick={() =>
                                   canManageAttendance &&
@@ -536,6 +642,14 @@ export default function AttendanceTable() {
                                 }}>
                                 {employeeName(l.user_id)}
                               </span>
+                            </td>
+                          )}
+
+                          {canManageAttendance && (
+                            <td className="text-center">
+                              {getDepartmentLabel(
+                                employeeLookup[l.user_id]?.department,
+                              )}
                             </td>
                           )}
 

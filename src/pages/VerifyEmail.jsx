@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { sendVerificationCodeEmail } from "../utils/emailService";
+import { getBreakLimitForDepartment } from "../utils/breakUtils";
 import logo from "../assets/logo.png";
 import { TextField, Button, Snackbar, Alert, Box } from "@mui/material";
 
@@ -137,7 +138,6 @@ function VerifyEmail() {
       }
 
       setTimeLeft(60);
-      setCanResend(false);
     } catch (err) {
       showMessage(err.message || "Failed to resend code", "error");
     }
@@ -325,6 +325,7 @@ function VerifyEmail() {
         }
       }
       console.log("Temp User:", tempUser);
+      const resolvedLimit = getBreakLimitForDepartment(tempUser.department);
       const employeeData = {
         user_id: createdUserId,
         email: tempUser.email,
@@ -337,10 +338,10 @@ function VerifyEmail() {
         verified: true,
         verification_code: null,
         verification_expire: null,
-        break_minutes_remaining: 45,
+        break_minutes_remaining: resolvedLimit,
         break_reset_date: new Date().toISOString().split("T")[0],
         break_used_today: 0,
-        daily_break_limit: 45,
+        daily_break_limit: resolvedLimit,
       };
 
       const { data: existingEmployee, error: selectError } = await supabase

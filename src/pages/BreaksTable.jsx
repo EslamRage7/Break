@@ -424,15 +424,15 @@ export default function BreaksTable() {
       );
   }, [filteredBreaks]);
 
-  const usedMinutesBySession = useMemo(() => {
+  const usedMinutesTodayByUser = useMemo(() => {
     const usage = {};
+    const today = getTodayDate();
 
     (breaks || []).forEach((segment) => {
-      const sessionId = segment?.break_session_id;
-      if (!sessionId) return;
+      const userId = segment?.user_id;
+      if (!userId || getSegmentDay(segment) !== today) return;
 
-      usage[sessionId] =
-        (usage[sessionId] || 0) + getSegmentUsedSeconds(segment);
+      usage[userId] = (usage[userId] || 0) + getSegmentUsedSeconds(segment);
     });
 
     Object.keys(usage).forEach((key) => {
@@ -442,20 +442,8 @@ export default function BreaksTable() {
     return usage;
   }, [breaks]);
 
-  const getUsedMinutes = (item) => {
-    if (!item?.id) return 0;
-
-    const usedMinutesValue = Number(item.used_minutes);
-    if (Number.isFinite(usedMinutesValue) && usedMinutesValue >= 0) {
-      return usedMinutesValue;
-    }
-
-    const usedSecondsValue = Number(item.used_seconds);
-    if (Number.isFinite(usedSecondsValue) && usedSecondsValue >= 0) {
-      return Math.floor(usedSecondsValue / 60);
-    }
-
-    return usedMinutesBySession[item.id] || 0;
+  const getUsedMinutesToday = (item) => {
+    return usedMinutesTodayByUser[item?.user_id] || 0;
   };
 
   const employeesInBreaks = useMemo(() => {
@@ -683,7 +671,7 @@ export default function BreaksTable() {
                             {getDisplayDurationMinutes(item)}m
                           </td>
                           <td className="text-center">
-                            {formatDuration(getUsedMinutes(item))}
+                            {formatDuration(getUsedMinutesToday(item))}
                           </td>
                           <td className="text-center">
                             {(() => {

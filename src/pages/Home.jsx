@@ -8,7 +8,7 @@ import { Box, Button, Chip, CircularProgress, Typography } from "@mui/material";
 import Swal from "sweetalert2";
 import Grow from "@mui/material/Grow";
 
-const getOperationalDayKey = (date = new Date()) => {
+const getOperationalDayKey = (date = new Date(), resetHour = 3) => {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Africa/Cairo",
     year: "numeric",
@@ -28,7 +28,7 @@ const getOperationalDayKey = (date = new Date()) => {
       Number(parts.year),
       Number(parts.month) - 1,
       Number(parts.day),
-      Number(parts.hour) - 3,
+      Number(parts.hour) - resetHour,
     ),
   )
     .toISOString()
@@ -47,6 +47,7 @@ function Home() {
   const [attendanceStatus, setAttendanceStatus] = useState("Not Checked In");
   const [breakRefreshKey, setBreakRefreshKey] = useState(0);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [dayResetHour, setDayResetHour] = useState(3);
   const [workMode, setWorkMode] = useState(() => {
     if (typeof window === "undefined") return "office";
 
@@ -65,7 +66,10 @@ function Home() {
   const autoCheckoutTriggeredRef = useRef("");
 
   // The operational day changes at 03:00 Cairo time, not midnight.
-  const getTodayKey = getOperationalDayKey;
+  const getTodayKey = useCallback(
+    () => getOperationalDayKey(new Date(), dayResetHour),
+    [dayResetHour],
+  );
 
   const resetCompletedMessageState = useCallback(() => {
     setShowCompletedMessage(false);
@@ -122,7 +126,7 @@ function Home() {
     setAttendanceCompletedToday(
       !!latestAttendance && latestAttendance.check_out !== null,
     );
-  }, []);
+  }, [getTodayKey]);
 
   const performCheckout = useCallback(
     async (
@@ -323,7 +327,7 @@ function Home() {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [checkAttendance, resetCompletedMessageState]);
+  }, [checkAttendance, getTodayKey, resetCompletedMessageState]);
 
   useEffect(() => {
     let isMounted = true;
@@ -431,7 +435,7 @@ function Home() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("work_mode", workMode);
     window.localStorage.setItem("work_mode_day", getTodayKey());
-  }, [workMode]);
+  }, [getTodayKey, workMode]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -449,13 +453,20 @@ function Home() {
           .single();
         const { data: shift, error: shiftError } = await supabase
           .from("employee_shifts")
-          .select("id")
+          .select("id, shifts(start_time, end_time)")
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (shiftError) throw shiftError;
 
         setHasShift(!!shift);
+        const assignedShift = shift?.shifts;
+        setDayResetHour(
+          assignedShift?.start_time?.startsWith("00:00") &&
+            assignedShift?.end_time?.startsWith("08:00")
+            ? 11
+            : 3,
+        );
         if (error) throw error;
         if (data) {
           setFirstName(data.first_name || "");

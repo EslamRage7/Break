@@ -23,9 +23,6 @@ Deno.serve(async (req) => {
 
     const now = new Date();
 
-    // A workday runs from 03:00 Cairo time until 02:59 the following day.
-    // This keeps after-midnight activity attached to the shift that started
-    // the previous evening.
     const cairoParts = new Intl.DateTimeFormat("en-US", {
       timeZone: "Africa/Cairo",
       year: "numeric",
@@ -46,12 +43,9 @@ Deno.serve(async (req) => {
       Number(cairoParts.day),
       Number(cairoParts.hour),
     );
-    const attendanceDate = new Date(
-      cairoLocalTimestamp - 3 * 60 * 60 * 1000,
-    )
+    const cairoCalendarDate = new Date(cairoLocalTimestamp)
       .toISOString()
       .slice(0, 10);
-    console.log("attendanceDate:", attendanceDate);
     console.log("user_id:", user_id);
 
     // Get current shift or use a safe fallback when none is assigned
@@ -68,8 +62,8 @@ Deno.serve(async (req) => {
       `,
       )
       .eq("user_id", user_id)
-      .lte("from_date", attendanceDate)
-      .or(`to_date.is.null,to_date.gte.${attendanceDate}`)
+      .lte("from_date", cairoCalendarDate)
+      .or(`to_date.is.null,to_date.gte.${cairoCalendarDate}`)
       .maybeSingle();
 
     if (shiftError) throw shiftError;
@@ -77,6 +71,20 @@ Deno.serve(async (req) => {
     const shift = shiftData?.shifts;
     const shiftName = shift?.shift_name || "No Shift";
     const normalizedWorkLocation = work_mode === "office" ? "Office" : "Remote";
+
+    // Night shifts normally renew at 03:00. The 00:00–08:00 shift stays on
+    // its starting day until 11:00 so its employee can check in after midnight.
+    const dayResetHour =
+      shift?.start_time?.startsWith("00:00") &&
+      shift?.end_time?.startsWith("08:00")
+        ? 11
+        : 3;
+    const attendanceDate = new Date(
+      cairoLocalTimestamp - dayResetHour * 60 * 60 * 1000,
+    )
+      .toISOString()
+      .slice(0, 10);
+    console.log("attendanceDate:", attendanceDate);
 
     const getCairoOffsetMinutes = (date) => {
       // compute offset (in minutes) between UTC and Cairo time for given date

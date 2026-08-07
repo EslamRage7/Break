@@ -250,6 +250,8 @@ export default function AdminTable() {
         const breakRows = adminData?.breaks || [];
 
         setEmployees(employeeRows);
+        console.log("Logged User:", user.id);
+        console.log("Employees From Function:", employeeRows);
         setBreaks(breakRows);
 
         const { data: shiftRows, error: shiftError } = await supabase
@@ -316,6 +318,28 @@ export default function AdminTable() {
       setUpdatingUserId("");
     }
   };
+  const handleDepartmentChange = async (employee, department) => {
+    try {
+      const { error } = await supabase
+        .from("employees")
+        .update({ department })
+        .eq("user_id", employee.user_id);
+
+      if (error) throw error;
+
+      setEmployees((prev) =>
+        prev.map((item) =>
+          item.user_id === employee.user_id ? { ...item, department } : item,
+        ),
+      );
+
+      showMessage("Department updated successfully", "success");
+    } catch (err) {
+      console.error(err);
+      showMessage(err.message || "Failed to update department", "error");
+    }
+  };
+
   const saveShift = async (userId, shiftId) => {
     try {
       const { error } = await supabase.from("employee_shifts").upsert(
@@ -544,7 +568,23 @@ export default function AdminTable() {
                           </td>
 
                           <td className="text-center">
-                            {getDepartmentLabel(employee.department)}
+                            <FormControl size="small" sx={{ minWidth: 180 }}>
+                              <Select
+                                value={employee.department || ""}
+                                onChange={(e) =>
+                                  handleDepartmentChange(
+                                    employee,
+                                    e.target.value,
+                                  )
+                                }
+                                disabled={userRole !== "admin"}>
+                                {Object.values(departmentNames).map((dep) => (
+                                  <MenuItem key={dep} value={dep}>
+                                    {dep}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
                           </td>
 
                           <td className="text-center">

@@ -91,6 +91,23 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       employees = data || [];
+      console.log("==================================");
+      console.log("Current User:", user.id);
+      console.log("Leader Team:", currentEmployee.team_id);
+      console.log("Employees Count:", employees.length);
+
+      employees.forEach((e) => {
+        console.log(
+          e.first_name,
+          e.last_name,
+          "| Team:",
+          e.team_id,
+          "| Role:",
+          e.role,
+        );
+      });
+
+      console.log("==================================");
     } else if (currentEmployee.role === "team_leader") {
       const { data, error } = await supabase
         .from("employees")
@@ -101,6 +118,23 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       employees = data || [];
+      console.log("==================================");
+      console.log("Current User:", user.id);
+      console.log("Leader Team:", currentEmployee.team_id);
+      console.log("Employees Count:", employees.length);
+
+      employees.forEach((e) => {
+        console.log(
+          e.first_name,
+          e.last_name,
+          "| Team:",
+          e.team_id,
+          "| Role:",
+          e.role,
+        );
+      });
+
+      console.log("==================================");
     } else {
       return new Response(
         JSON.stringify({

@@ -510,15 +510,7 @@ export default function BreaksTable() {
 
           {!loading && isAdmin && (
             <div>
-              <div
-                className="table-filters"
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  marginBottom: 12,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}>
+              <div className="holiday-toolbar">
                 <FormControl size="small" style={{ minWidth: 220 }}>
                   <InputLabel id="employee-select-label">Employee</InputLabel>
                   <Select
@@ -597,6 +589,7 @@ export default function BreaksTable() {
                     setStatusQuery("");
                     setDepartmentQuery("");
                   }}
+                  className="holiday-button holiday-button-secondary"
                   sx={{
                     height: 40,
                     borderRadius: 2,
@@ -639,20 +632,10 @@ export default function BreaksTable() {
                           </td>
                           <td className="text-capitalize name-link-cell">
                             <button
-                              className="text-capitalize"
-                              type="button"
+                              className="text-capitalize holiday-name-button bg-transparent border-0 p-0 m-0"
                               onClick={() =>
                                 navigate(`/employee-breaks/${item.user_id}`)
-                              }
-                              style={{
-                                background: "transparent",
-                                border: "none",
-                                padding: 0,
-                                color: "#0ea5e9",
-                                cursor: "pointer",
-                                fontWeight: 600,
-                                textAlign: "left",
-                              }}>
+                              }>
                               {employeeNamesById[item.user_id] || item.user_id}
                             </button>
                           </td>

@@ -480,18 +480,12 @@ export default function EmployeeAttendancePage() {
           </div>
           <br />
           <button
-            className="back-btn btn"
+            className="holiday-button holiday-button-secondary back-btn btn"
             type="button"
             onClick={() => navigate("/attendance")}
             style={{
               marginBottom: 16,
               marginTop: 16,
-              border: "1px solid #d0d7de",
-              background: "#fff",
-              padding: "8px 14px",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontWeight: 600,
             }}>
             ← Back to attendance
           </button>
@@ -518,14 +512,7 @@ export default function EmployeeAttendancePage() {
                 </span>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  flexWrap: "wrap",
-                  marginBottom: 16,
-                  alignItems: "center",
-                }}>
+              <div className="holiday-toolbar">
                 <FormControl size="small" style={{ minWidth: 180 }}>
                   <InputLabel id="attendance-date-filter-label">
                     Date
@@ -595,6 +582,7 @@ export default function EmployeeAttendancePage() {
                     setMonthFilter("");
                     setLocationFilter("");
                   }}
+                  className="holiday-button holiday-button-secondary"
                   sx={{
                     height: 40,
                     borderRadius: 2,

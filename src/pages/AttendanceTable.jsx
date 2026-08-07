@@ -489,13 +489,7 @@ export default function AttendanceTable() {
 
           {!loading && (
             <div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  flexWrap: "wrap",
-                  marginBottom: 16,
-                }}>
+              <div className="holiday-toolbar">
                 {canManageAttendance && (
                   <>
                     <FormControl size="small" style={{ minWidth: 220 }}>
@@ -583,6 +577,7 @@ export default function AttendanceTable() {
                   variant="outlined"
                   size="small"
                   onClick={handleClearFilters}
+                  className="holiday-button holiday-button-secondary"
                   sx={{
                     height: 40,
                     borderRadius: 2,
@@ -627,19 +622,11 @@ export default function AttendanceTable() {
                           {canManageAttendance && (
                             <td className="text-capitalize name-link-cell">
                               <span
+                                className="holiday-name-button"
                                 onClick={() =>
                                   canManageAttendance &&
                                   navigate(`/employee-attendance/${l.user_id}`)
-                                }
-                                style={{
-                                  cursor: canManageAttendance
-                                    ? "pointer"
-                                    : "default",
-                                  color: canManageAttendance
-                                    ? "#0ea5e9"
-                                    : "inherit",
-                                  fontWeight: 600,
-                                }}>
+                                }>
                                 {employeeName(l.user_id)}
                               </span>
                             </td>

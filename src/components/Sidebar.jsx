@@ -14,6 +14,7 @@ import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
 
 import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import CoffeeRoundedIcon from "@mui/icons-material/CoffeeRounded";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 
 import { NavLink, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
@@ -232,6 +233,7 @@ export default function Sidebar() {
   );
 
   const breaksIcon = <CoffeeRoundedIcon fontSize="small" />;
+  const holidaysIcon = <EventAvailableRoundedIcon fontSize="small" />;
 
   return (
     <>
@@ -301,6 +303,26 @@ export default function Sidebar() {
               onClick={closeSidebar}>
               {breaksIcon}
               <span>Breaks</span>
+            </NavLink>
+          )}
+
+          {canManageEmployees && (
+            <NavLink
+              to="/holidays"
+              className={navLinkClass}
+              onClick={closeSidebar}>
+              {holidaysIcon}
+              <span>Holidays</span>
+            </NavLink>
+          )}
+
+          {!canManageEmployees && (
+            <NavLink
+              to="/holidays"
+              className={navLinkClass}
+              onClick={closeSidebar}>
+              {holidaysIcon}
+              <span>My Holidays</span>
             </NavLink>
           )}
         </nav>

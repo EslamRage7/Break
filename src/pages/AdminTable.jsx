@@ -390,14 +390,7 @@ export default function AdminTable() {
 
           {!loading && canManageEmployees && (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 12,
-                  marginBottom: 16,
-                  alignItems: "end",
-                }}>
+              <div className="holiday-toolbar">
                 <FormControl
                   size="small"
                   variant="outlined"
@@ -502,6 +495,7 @@ export default function AdminTable() {
                   variant="outlined"
                   size="small"
                   onClick={handleClearFilters}
+                  className="holiday-button holiday-button-secondary"
                   sx={{
                     height: 40,
                     borderRadius: 2,
@@ -543,7 +537,7 @@ export default function AdminTable() {
                           <td>
                             <strong>{index + 1}</strong>
                           </td>
-                          <td className="text-capitalize">
+                          <td className="text-capitalize holiday-name-button">
                             <strong>
                               {employee.first_name} {employee.last_name}
                             </strong>

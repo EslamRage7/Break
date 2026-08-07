@@ -8,6 +8,7 @@ import BreaksTable from "./pages/BreaksTable";
 import AttendanceTable from "./pages/AttendanceTable";
 import EmployeeAttendancePage from "./pages/EmployeeAttendancePage";
 import EmployeeBreaksPage from "./pages/EmployeeBreaksPage";
+import HolidaysPage from "./pages/HolidaysPage";
 import Home from "./pages/Home";
 import VerifyEmail from "./pages/VerifyEmail";
 import Settings from "./pages/Settings";
@@ -35,6 +36,8 @@ function App() {
       title = "Attendance | Mobile 2000";
     } else if (path === "/breaks") {
       title = "Breaks | Mobile 2000";
+    } else if (path === "/holidays") {
+      title = "Holidays | Mobile 2000";
     } else if (path === "/table") {
       title = "Employees | Mobile 2000";
     } else if (path === "/break") {
@@ -80,6 +83,8 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/table" element={<AdminTable />} />
           <Route path="/breaks" element={<BreaksTable />} />
+          <Route path="/holidays" element={<HolidaysPage />} />
+          <Route path="/holidays/:userId" element={<HolidaysPage />} />
           <Route path="/attendance" element={<AttendanceTable />} />
           <Route
             path="/employee-attendance/:userId"

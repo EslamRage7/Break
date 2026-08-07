@@ -203,18 +203,12 @@ export default function EmployeeBreaksPage() {
           <br />
 
           <button
-            className="back-btn btn"
+            className="holiday-button holiday-button-secondary back-btn btn"
             type="button"
             onClick={() => navigate("/breaks")}
             style={{
               marginBottom: 16,
               marginTop: 16,
-              border: "1px solid #d0d7de",
-              background: "#fff",
-              padding: "8px 14px",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontWeight: 600,
             }}>
             ← Back to all breaks
           </button>
@@ -237,14 +231,7 @@ export default function EmployeeBreaksPage() {
 
           {!loading && isAdmin && (
             <div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  flexWrap: "wrap",
-                  marginBottom: 16,
-                  alignItems: "center",
-                }}>
+              <div className="holiday-toolbar">
                 <FormControl size="small" style={{ minWidth: 180 }}>
                   <InputLabel id="date-filter-label">Date</InputLabel>
                   <Select
@@ -268,6 +255,7 @@ export default function EmployeeBreaksPage() {
                   size="small"
                   variant="outlined"
                   onClick={() => setDayQuery("")}
+                  className="holiday-button holiday-button-secondary"
                   sx={{
                     height: 40,
                     borderRadius: 2,

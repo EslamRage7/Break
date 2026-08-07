@@ -57,6 +57,10 @@ export default function HolidaysPage() {
   const [editingHoliday, setEditingHoliday] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    holiday: null,
+  });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -243,6 +247,14 @@ export default function HolidaysPage() {
     if (!saving) setDialogOpen(false);
   };
 
+  const openDeleteDialog = (holiday) => {
+    setDeleteDialog({ open: true, holiday });
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialog({ open: false, holiday: null });
+  };
+
   const saveHoliday = async (event) => {
     event.preventDefault();
     if (!form.user_id || !form.holiday_name.trim() || !form.holiday_date) {
@@ -289,13 +301,10 @@ export default function HolidaysPage() {
     }
   };
 
-  const deleteHoliday = async (holiday) => {
-    if (
-      !window.confirm(
-        `Delete ${holiday.holiday_name} for ${employeeNames[holiday.user_id] || "this employee"}?`,
-      )
-    )
-      return;
+  const confirmDeleteHoliday = async () => {
+    const holiday = deleteDialog.holiday;
+    if (!holiday) return;
+
     try {
       const { error } = await supabase
         .from("employee_holidays")
@@ -309,6 +318,8 @@ export default function HolidaysPage() {
     } catch (error) {
       console.error(error);
       showMessage(error.message || "Failed to delete holiday", "error");
+    } finally {
+      closeDeleteDialog();
     }
   };
 
@@ -495,7 +506,7 @@ export default function HolidaysPage() {
                               size="small"
                               color="error"
                               aria-label="Delete holiday"
-                              onClick={() => deleteHoliday(holiday)}
+                              onClick={() => openDeleteDialog(holiday)}
                               className="holiday-icon-button holiday-delete-button">
                               <DeleteOutlineRoundedIcon fontSize="small" />
                             </Button>
@@ -631,6 +642,80 @@ export default function HolidaysPage() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialog.open}
+        onClose={closeDeleteDialog}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            overflow: "hidden",
+            boxShadow: "0 16px 40px rgba(15, 23, 42, 0.16)",
+          },
+        }}>
+        <DialogTitle
+          sx={{
+            textAlign: "center",
+            pb: 1,
+            pt: 3,
+            fontWeight: 700,
+            color: "#0f172a",
+          }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: 10,
+            }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                background: "rgba(244, 63, 94, 0.12)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+              <DeleteOutlineRoundedIcon color="error" fontSize="small" />
+            </div>
+          </div>
+          Delete holiday?
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: "center", px: 3, pb: 1 }}>
+          <Typography
+            variant="body1"
+            sx={{ color: "#475569", lineHeight: 1.6 }}>
+            Are you sure you want to delete{" "}
+            <strong style={{ color: "#0f172a" }}>
+              {deleteDialog.holiday?.holiday_name || "this holiday"}
+            </strong>{" "}
+            for{" "}
+            <strong style={{ color: "#0f172a" }}>
+              {employeeNames[deleteDialog.holiday?.user_id] || "this employee"}
+            </strong>
+            ?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "center", gap: 1, p: 3, pt: 1 }}>
+          <Button
+            onClick={closeDeleteDialog}
+            className="holiday-button holiday-button-secondary"
+            sx={{ minWidth: 110 }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmDeleteHoliday}
+            color="error"
+            variant="contained"
+            className="holiday-button holiday-button-primary"
+            sx={{ minWidth: 110 }}>
+            Delete
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Snackbar

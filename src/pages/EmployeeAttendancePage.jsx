@@ -505,9 +505,25 @@ export default function EmployeeAttendancePage() {
 
           {!loading && isAdmin && (
             <div>
-              <div style={{ marginBottom: 12, fontWeight: 700 }}>
+              <div
+                style={{
+                  margin: "20px 0 30px",
+                  padding: "15px 14px",
+                  background:
+                    "linear-gradient(90deg, #f0faff 0%, #ffffff 100%)",
+                  borderLeft: "4px solid #00a6eb",
+                  borderRadius: "6px",
+                  fontWeight: 700,
+                  color: "#333",
+                  boxShadow: "0 2px 6px rgba(0, 166, 235, 0.08)",
+                }}>
                 Attendance of
-                <span style={{ color: "#00a6eb", margin: "0 8px" }}>
+                <span
+                  style={{
+                    color: "#00a6eb",
+                    margin: "0 8px",
+                    fontWeight: 800,
+                  }}>
                   {employeeName}
                 </span>
               </div>

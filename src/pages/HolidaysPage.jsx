@@ -399,8 +399,8 @@ export default function HolidaysPage() {
                     <tr>
                       <th>#</th>
                       <th>Employee</th>
-                      <th className="text-center">Department</th>
-                      <th className="text-center">Holidays</th>
+                      <th>Department</th>
+                      <th>Holidays</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -427,10 +427,8 @@ export default function HolidaysPage() {
                               {employeeLabel(employee)}
                             </Button>
                           </td>
-                          <td className="text-center">
-                            {employee.department || "-"}
-                          </td>
-                          <td className="text-center">
+                          <td>{employee.department || "-"}</td>
+                          <td>
                             <span className="holiday-count-pill">
                               {employee.holidayCount}
                             </span>

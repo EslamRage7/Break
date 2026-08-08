@@ -221,6 +221,7 @@ export default function AttendanceTable() {
     `,
               { count: "exact" },
             )
+            .not("check_out", "is", null)
             .order("attendance_date", { ascending: false })
             .order("created_at", { ascending: false });
 

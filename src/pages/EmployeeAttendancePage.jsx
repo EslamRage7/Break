@@ -511,7 +511,7 @@ export default function EmployeeAttendancePage() {
                   padding: "15px 14px",
                   background:
                     "linear-gradient(90deg, #f0faff 0%, #ffffff 100%)",
-                  borderLeft: "4px solid #00a6eb",
+                  borderLeft: "4px solid #0369a1 ",
                   borderRadius: "6px",
                   fontWeight: 700,
                   color: "#333",
@@ -520,7 +520,7 @@ export default function EmployeeAttendancePage() {
                 Attendance of
                 <span
                   style={{
-                    color: "#00a6eb",
+                    color: "#0369a1",
                     margin: "0 8px",
                     fontWeight: 800,
                   }}>
